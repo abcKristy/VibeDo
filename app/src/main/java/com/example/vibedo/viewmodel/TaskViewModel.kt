@@ -1,11 +1,9 @@
 package com.example.vibedo.viewmodel
 
-import android.os.Message
-import android.view.View
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vibedo.model.ITaskRepository
 import com.example.vibedo.model.TaskEntity
-import com.example.vibedo.model.TaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +14,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TaskViewModel @Inject constructor(
-    private val repository: TaskRepository
+    private val repository: ITaskRepository
 ): ViewModel() {
     val allTasks: Flow<List<TaskEntity>> = repository.getAllTasks()
     val activeTasks: Flow<List<TaskEntity>> = repository.getActiveTasks()
@@ -25,7 +23,16 @@ class TaskViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<TaskUiState>(TaskUiState.Empty)
     val uiState: StateFlow<TaskUiState> = _uiState.asStateFlow()
 
+    private val _selectedTask = MutableStateFlow<TaskEntity?>(null)
+    val selectedTask: StateFlow<TaskEntity?> = _selectedTask.asStateFlow()
+
     fun addTask(title: String, description:String? = null, priority:Int = 0){
+
+        if(title.isBlank()){
+            _uiState.value = TaskUiState.Error("error becouse of empty title")
+            return
+        }
+
         viewModelScope.launch {
             try{
                 val task = TaskEntity(
