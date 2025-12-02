@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.vibedo.model.TaskDao
 import com.example.vibedo.model.TaskDatabase
+import com.example.vibedo.model.TaskTagDao  // Add this import
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,7 +19,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(
         @ApplicationContext context: Context
-    ): TaskDatabase{
+    ): TaskDatabase {
         return Room.databaseBuilder(
             context,
             TaskDatabase::class.java,
@@ -27,9 +28,16 @@ object DatabaseModule {
             .fallbackToDestructiveMigration()
             .build()
     }
+
     @Provides
     @Singleton
-    fun providetaskDao(database: TaskDatabase): TaskDao{
+    fun provideTaskDao(database: TaskDatabase): TaskDao {
         return database.taskDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideTaskTagDao(database: TaskDatabase): TaskTagDao {
+        return database.taskTagDao()
     }
 }

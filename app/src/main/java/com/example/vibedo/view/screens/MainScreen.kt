@@ -40,7 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vibedo.model.TaskEntity
-import com.example.vibedo.ui.components.TaskItem
+import com.example.vibedo.view.components.TaskItem
 import com.example.vibedo.view.components.CalendarHeader
 import com.example.vibedo.view.components.TodayHeader
 import com.example.vibedo.view.theme.VibeDoTheme

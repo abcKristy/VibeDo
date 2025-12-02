@@ -4,69 +4,67 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 
+/**
+ * Пара цветов для карточки: светлый фон и темный текст/иконки
+ */
 data class CardColorPair(
     val backgroundColor: Color,
-    val contentColor: Color
+    val contentColor: Color,
+    val name: String = ""
 )
 
+/**
+ * Менеджер цветов карточек
+ */
 object CardColorManager {
-    private val colorPairs = listOf(
-        // 1. Персиковый
-        CardColorPair(peach, peachDark),
-        // 2. Мятный
-        CardColorPair(mint, mintDark),
-        // 3. Лавандовый
-        CardColorPair(lavender, lavenderDark),
-        // 4. Песочный
-        CardColorPair(sand, sandDark),
-        // 5. Нежно-голубой
-        CardColorPair(skyBlue, skyBlueDark),
-        // 6. Оливковый
-        CardColorPair(olive, oliveDark),
-        // 7. Коралловый
-        CardColorPair(coral, coralDark),
-        // 8. Сливочный
-        CardColorPair(cream, creamDark),
-        // 9. Аквамариновый
-        CardColorPair(aqua, aquaDark),
-        // 10. Сиреневый
-        CardColorPair(lilac, lilacDark),
-        // 11. Лимонный
-        CardColorPair(lemon, lemonDark),
-        // 12. Пыльная роза
-        CardColorPair(dustyRose, dustyRoseDark),
-        // 13. Шалфейный
-        CardColorPair(sage, sageDark),
-        // 14. Перламутровый
-        CardColorPair(pearl, pearlDark),
-        // 15. Бирюзовый
-        CardColorPair(turquoise, turquoiseDark),
-        // 16. Ванильный
-        CardColorPair(vanilla, vanillaDark),
-        // 17. Глиняный
-        CardColorPair(clay, clayDark),
-        // 18. Серебряный
-        CardColorPair(silver, silverDark),
-        // 19. Морской волны
-        CardColorPair(seaWave, seaWaveDark),
-        // 20. Фисташковый
-        CardColorPair(pistachio, pistachioDark)
+    val colorPairs = listOf(
+        CardColorPair(peach, peachDark, "Peach"),
+        CardColorPair(coral, coralDark, "Coral"),
+        CardColorPair(lemon, lemonDark, "Lemon"),
+        CardColorPair(butter, butterDark, "Butter"),
+        CardColorPair(mint, mintDark, "Mint"),
+        CardColorPair(aqua, aquaDark, "Aqua"),
+        CardColorPair(turquoise, turquoiseDark, "Turquoise"),
+        CardColorPair(skyBlue, skyBlueDark, "Sky Blue"),
+        CardColorPair(azure, azureDark, "Azure"),
+        CardColorPair(lavender, lavenderDark, "Lavender"),
+        CardColorPair(lilac, lilacDark, "Lilac"),
+        CardColorPair(amethyst, amethystDark, "Amethyst"),
+        CardColorPair(sage, sageDark, "Sage"),
+        CardColorPair(olive, oliveDark, "Olive"),
+        CardColorPair(moss, mossDark, "Moss"),
+        CardColorPair(sand, sandDark, "Sand"),
+        CardColorPair(cream, creamDark, "Cream"),
+        CardColorPair(vanilla, vanillaDark, "Vanilla"),
+        CardColorPair(pearl, pearlDark, "Pearl"),
+        CardColorPair(silver, silverDark, "Silver")
     )
 
-    private var currentIndex = 0
+    // Предопределенные теги (не пользовательские)
+    val predefinedTags = listOf(
+        "task", "meeting", "lesson", "work", "personal", "urgent"
+    )
 
-    fun getNextColor(): CardColorPair {
-        val color = colorPairs[currentIndex]
-        currentIndex = (currentIndex + 1) % colorPairs.size
-        return color
-    }
+    // Цвета по умолчанию для предопределенных тегов
+    val defaultTagColors = mapOf(
+        "task" to colorPairs[0],       // Peach
+        "meeting" to colorPairs[4],    // Mint
+        "lesson" to colorPairs[10],    // Lilac
+        "work" to colorPairs[2],       // Lemon
+        "personal" to colorPairs[17],  // Vanilla
+        "urgent" to colorPairs[1]      // Coral
+    )
 
-
+    /**
+     * Получить цвет по индексу
+     */
     fun getColorByIndex(index: Int): CardColorPair {
         return colorPairs[index % colorPairs.size]
     }
 
-
+    /**
+     * Получить индекс цвета
+     */
     fun getColorIndex(pair: CardColorPair): Int {
         return colorPairs.indexOfFirst {
             it.backgroundColor == pair.backgroundColor &&
@@ -74,25 +72,35 @@ object CardColorManager {
         }.takeIf { it != -1 } ?: 0
     }
 
-
-    fun reset() {
-        currentIndex = 0
+    /**
+     * Получить цвет по умолчанию для тега
+     */
+    fun getDefaultForTag(tag: String): CardColorPair {
+        return defaultTagColors[tag] ?: colorPairs[0]
     }
 
-    fun getAllColors(): List<CardColorPair> = colorPairs
-}
-
-
-@Composable
-fun rememberCardColors(cardId: Long): CardColorPair {
-    return remember(cardId) {
-        val index = (cardId % CardColorManager.getAllColors().size).toInt()
-        CardColorManager.getColorByIndex(index)
+    /**
+     * Проверить, является ли тег предопределенным
+     */
+    fun isPredefinedTag(tag: String): Boolean {
+        return predefinedTags.contains(tag)
     }
 }
 
-
+/**
+ * Композируемая функция для получения цветов карточки
+ */
 @Composable
-fun rememberNextCardColor(): CardColorPair {
-    return remember { CardColorManager.getNextColor() }
+fun rememberCardColors(colorIndex: Int): CardColorPair {
+    return remember(colorIndex) {
+        CardColorManager.getColorByIndex(colorIndex)
+    }
+}
+
+/**
+ * Получить все доступные цвета
+ */
+@Composable
+fun getAllAvailableColors(): List<CardColorPair> {
+    return remember { CardColorManager.colorPairs }
 }

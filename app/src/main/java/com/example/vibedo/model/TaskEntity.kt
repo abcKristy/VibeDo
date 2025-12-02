@@ -33,6 +33,9 @@ data class TaskEntity(
     @ColumnInfo(name = "duration")
     val duration: Int? = null,
 
+    @ColumnInfo(name = "color_index")
+    val colorIndex: Int = 0,
+
     @ColumnInfo(name = "created_date")
     val createdDate: Long = System.currentTimeMillis()
 )

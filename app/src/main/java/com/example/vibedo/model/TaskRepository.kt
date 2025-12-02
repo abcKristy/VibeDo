@@ -18,13 +18,15 @@ class TaskRepository @Inject constructor(
     }
 }
 
-interface ITaskRepository{
+interface ITaskRepository {
     fun getAllTasks(): Flow<List<TaskEntity>>
     fun getActiveTasks(): Flow<List<TaskEntity>>
     fun getCompletedTasks(): Flow<List<TaskEntity>>
     suspend fun getTaskById(taskId: Long): TaskEntity?
-    suspend fun insertTask(task: TaskEntity):Long
+    suspend fun insertTask(task: TaskEntity): Long
     suspend fun updateTask(task: TaskEntity)
     suspend fun deleteTask(task: TaskEntity)
     suspend fun updateCompletedStatus(taskId: Long, isCompleted: Boolean)
 }
+
+

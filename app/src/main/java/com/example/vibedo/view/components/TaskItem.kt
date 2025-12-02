@@ -1,4 +1,4 @@
-package com.example.vibedo.ui.components
+package com.example.vibedo.view.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -10,16 +10,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.vibedo.model.TaskEntity
+import com.example.vibedo.view.theme.CardColorPair
 import com.example.vibedo.view.theme.VibeDoTheme
 import com.example.vibedo.view.theme.rememberCardColors
 import java.text.SimpleDateFormat
-import java.time.LocalDateTime
 import java.util.*
 
 @Composable
@@ -28,8 +28,8 @@ fun TaskItem(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cardColors = rememberCardColors(task.id)
 
+    val cardColors = rememberCardColors(task.colorIndex)
     val priorityIcon = when (task.priority) {
         0 -> Icons.Default.LowPriority
         1 -> Icons.Default.PriorityHigh
@@ -127,7 +127,7 @@ fun TaskItem(
 fun TimeText(
     time: Long?,
     label: String,
-    textColor: androidx.compose.ui.graphics.Color
+    textColor: Color
 ) {
     Text(
         text = label,
@@ -156,7 +156,7 @@ fun TimeText(
 @Composable
 fun DurationChip(
     duration: Int?,
-    cardColors: com.example.vibedo.view.theme.CardColorPair
+    cardColors: CardColorPair
 ) {
     if (duration != null && duration > 0) {
         Surface(
