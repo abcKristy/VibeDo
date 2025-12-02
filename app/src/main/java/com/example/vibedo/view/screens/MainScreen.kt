@@ -39,10 +39,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
 import com.example.vibedo.model.TaskEntity
+import com.example.vibedo.ui.components.TaskItem
 import com.example.vibedo.view.components.CalendarHeader
-import com.example.vibedo.view.components.TaskItem
 import com.example.vibedo.view.components.TodayHeader
 import com.example.vibedo.view.theme.VibeDoTheme
 import com.example.vibedo.viewmodel.TaskViewModel
@@ -208,15 +207,12 @@ fun TaskList(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .padding(horizontal = 12.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(tasks) { task ->
             TaskItem(
                 task = task,
-                onCheckedChange = { isCompleted ->
-                    viewModel?.updateTaskCompleted(task.id, isCompleted)
-                },
                 onDeleteClick = {
                     viewModel?.deleteTask(task)
                 }

@@ -24,6 +24,9 @@ interface TaskDao{
     @Delete
     suspend fun deleteTask(task: TaskEntity)
 
+    @Query("SELECT * FROM tasks WHERE tag = :tag ORDER BY created_date DESC")
+    fun getTasksByTag(tag: String): Flow<List<TaskEntity>>
+
     @Query("SELECT * FROM tasks WHERE is_completed = 0 ORDER BY priority DESC, created_date DESC")
     fun getActiveTasks():Flow<List<TaskEntity>>
 
@@ -32,4 +35,7 @@ interface TaskDao{
 
     @Query("SELECT * FROM tasks WHERE is_completed = 1 ORDER BY created_date DESC")
     fun getCompletedTasks():Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks WHERE start_time IS NOT NULL ORDER BY start_time ASC")
+    fun getTasksByTime(): Flow<List<TaskEntity>>
 }

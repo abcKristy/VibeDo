@@ -26,24 +26,30 @@ class TaskViewModel @Inject constructor(
     private val _selectedTask = MutableStateFlow<TaskEntity?>(null)
     val selectedTask: StateFlow<TaskEntity?> = _selectedTask.asStateFlow()
 
-    fun addTask(title: String, description:String? = null, priority:Int = 0){
-
-        if(title.isBlank()){
-            _uiState.value = TaskUiState.Error("error becouse of empty title")
-            return
-        }
-
+    fun addTask(
+        title: String,
+        description: String? = null,
+        priority: Int = 0,
+        tag: String = "task",
+        startTime: Long? = null,
+        endTime: Long? = null,
+        duration: Int? = null
+    ) {
         viewModelScope.launch {
-            try{
+            try {
                 val task = TaskEntity(
                     title = title,
                     description = description,
-                    priority = priority
+                    priority = priority,
+                    tag = tag,
+                    startTime = startTime,
+                    endTime = endTime,
+                    duration = duration
                 )
                 repository.insertTask(task)
-                _uiState.value = TaskUiState.Success("add task")
-            }catch (e:Exception){
-                _uiState.value = TaskUiState.Error(e.message?:"cannot add task error")
+                _uiState.value = TaskUiState.Success("Task added")
+            } catch (e: Exception) {
+                _uiState.value = TaskUiState.Error(e.message ?: "Cannot add task")
             }
         }
     }
@@ -58,6 +64,24 @@ class TaskViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteTask(task)
         }
+    }
+
+    fun addTask(
+        title: String,
+        description: String? = null,
+        priority: Int = 0,
+        tag: String = "task",
+        duration: Int? = null
+    ) {
+        addTask(
+            title = title,
+            description = description,
+            priority = priority,
+            tag = tag,
+            startTime = null,
+            endTime = null,
+            duration = duration
+        )
     }
 }
 

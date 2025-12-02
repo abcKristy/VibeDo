@@ -1,120 +1,185 @@
-package com.example.vibedo.view.components
+package com.example.vibedo.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.vibedo.model.TaskEntity
 import com.example.vibedo.view.theme.VibeDoTheme
+import com.example.vibedo.view.theme.rememberCardColors
+import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.util.*
 
 @Composable
 fun TaskItem(
     task: TaskEntity,
-    onCheckedChange: (Boolean) -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cardColors = rememberCardColors(task.id)
+
+    val priorityIcon = when (task.priority) {
+        0 -> Icons.Default.LowPriority
+        1 -> Icons.Default.PriorityHigh
+        2 -> Icons.Default.Warning
+        else -> Icons.Default.LowPriority
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = cardColors.backgroundColor,
+            contentColor = cardColors.contentColor
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(16.dp)
         ) {
-            // Чекбокс и текст
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Checkbox(
-                    checked = task.isCompleted,
-                    onCheckedChange = onCheckedChange,
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = MaterialTheme.colorScheme.primary
-                    )
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.weight(1f),
+                    color = cardColors.contentColor
                 )
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(Modifier.width(80.dp))
 
-                Column {
-                    Text(
-                        text = task.title,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
-                        ),
-                        color = if (task.isCompleted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        else MaterialTheme.colorScheme.onSurface
-                    )
+                Icon(
+                    imageVector = priorityIcon,
+                    contentDescription = "Priority",
+                    tint = cardColors.contentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
 
-                    task.description?.let {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
+            Spacer(modifier = Modifier.height(12.dp))
 
-                    // Приоритет
-                    Spacer(modifier = Modifier.height(4.dp))
-                    PriorityIndicator(priority = task.priority)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    TimeText(time = task.startTime, label = "Start", textColor = cardColors.contentColor)
+                }
+
+                DurationChip(duration = task.duration, cardColors = cardColors)
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    TimeText(time = task.endTime, label = "End", textColor = cardColors.contentColor)
                 }
             }
 
-            // Кнопка удаления
-            IconButton(
-                onClick = onDeleteClick,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
+//            // Кнопка удаления (маленькая в правом нижнем углу)
+//            Box(
+//                modifier = Modifier.fillMaxWidth(),
+//                contentAlignment = Alignment.BottomEnd
+//            ) {
+//                IconButton(
+//                    onClick = onDeleteClick,
+//                    modifier = Modifier.size(32.dp)
+//                ) {
+//                    Icon(
+//                        Icons.Default.Delete,
+//                        contentDescription = "Delete",
+//                        tint = cardColors.contentColor.copy(alpha = 0.7f),
+//                        modifier = Modifier.size(20.dp)
+//                    )
+//                }
+//            }
         }
     }
 }
 
 @Composable
-fun PriorityIndicator(priority: Int) {
-    val (text, color) = when (priority) {
-        0 -> Pair("Low", Color.Green)
-        1 -> Pair("Medium", Color.Yellow)
-        2 -> Pair("High", Color.Red)
-        else -> Pair("Low", Color.Gray)
-    }
+fun TimeText(
+    time: Long?,
+    label: String,
+    textColor: androidx.compose.ui.graphics.Color
+) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall,
+        color = textColor.copy(alpha = 0.6f)
+    )
 
-    Surface(
-        modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .wrapContentSize(),
-        color = color.copy(alpha = 0.2f),
-        contentColor = color
-    ) {
+    Spacer(modifier = Modifier.height(4.dp))
+
+    if (time != null) {
+        val formatter = remember { SimpleDateFormat("h:mm a", Locale.ENGLISH) }
+        val timeText = formatter.format(Date(time))
+
         Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+            text = timeText,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.Medium
+            ),
+            color = textColor
         )
+    } else {
+        Box(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun DurationChip(
+    duration: Int?,
+    cardColors: com.example.vibedo.view.theme.CardColorPair
+) {
+    if (duration != null && duration > 0) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = cardColors.contentColor.copy(alpha = 0.1f),
+            contentColor = cardColors.contentColor
+        ) {
+            val hours = duration / 60
+            val minutes = duration % 60
+            val durationText = when {
+                hours > 0 && minutes > 0 -> "${hours}h ${minutes}min"
+                hours > 0 -> "${hours}h"
+                else -> "${minutes}min"
+            }
+
+            Text(
+                text = durationText,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        }
+    } else {
+        Box(modifier = Modifier.width(60.dp).height(32.dp))
     }
 }
 
@@ -122,54 +187,25 @@ fun PriorityIndicator(priority: Int) {
 @Composable
 fun TaskItemPreview() {
     VibeDoTheme {
-        Surface {
-            TaskItem(
-                task = TaskEntity(
-                    id = 1,
-                    title = "Complete UI design",
-                    description = "Finish all screens and components",
-                    isCompleted = false,
-                    priority = 2,
-                    createdDate = System.currentTimeMillis()
-                ),
-                onCheckedChange = {},
-                onDeleteClick = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TaskItemCompletedPreview() {
-    VibeDoTheme {
-        Surface {
-            TaskItem(
-                task = TaskEntity(
-                    id = 2,
-                    title = "Buy groceries",
-                    description = "Milk, eggs, bread",
-                    isCompleted = true,
-                    priority = 0,
-                    createdDate = System.currentTimeMillis()
-                ),
-                onCheckedChange = {},
-                onDeleteClick = {}
-            )
-        }
-    }
-}
-@Preview(showBackground = true)
-@Composable
-fun PriorityIndicatorPreview() {
-    VibeDoTheme {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            PriorityIndicator(priority = 0)
-            PriorityIndicator(priority = 1)
-            PriorityIndicator(priority = 2)
+            repeat(3) { index ->
+                TaskItem(
+                    task = TaskEntity(
+                        id = index.toLong(),
+                        title = "Task ${index + 1} now time for work harder to be better",
+                        description = "Description for task ${index + 1}",
+                        priority = index % 3,
+                        duration = 30 + index * 15
+                    ),
+                    onDeleteClick = {}
+                )
+            }
         }
     }
 }
