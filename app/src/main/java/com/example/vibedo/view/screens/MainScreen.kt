@@ -51,7 +51,7 @@ import com.example.vibedo.viewmodel.TaskViewModel
 @Composable
 fun MainScreen(
     viewModel: TaskViewModel,
-    navController: NavHostController
+    onNavigateToAddTask: () -> Unit
 ) {
     val tasks by viewModel.allTasks.collectAsState(initial = emptyList())
     var isTodayView by remember { mutableStateOf(true) }
@@ -92,7 +92,7 @@ fun MainScreen(
 
                     // Кнопка добавления
                     FloatingActionButton(
-                        onClick = { navController.navigate("addTask") },
+                        onClick = onNavigateToAddTask,
                         modifier = Modifier.size(40.dp),
                         containerColor = MaterialTheme.colorScheme.primary
                     ) {

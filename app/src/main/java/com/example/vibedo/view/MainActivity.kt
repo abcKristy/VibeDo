@@ -1,14 +1,11 @@
-package com.example.vibedo.ui
+package com.example.vibedo.view
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.vibedo.view.screens.MainScreen
-import com.example.vibedo.view.screens.AddTaskScreen
+import com.example.vibedo.view.navigation.MainNavGraph
 import com.example.vibedo.view.theme.VibeDoTheme
 import com.example.vibedo.viewmodel.TaskViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -25,24 +22,10 @@ class MainActivity : ComponentActivity() {
             VibeDoTheme {
                 val navController = rememberNavController()
 
-                NavHost(
+                MainNavGraph(
                     navController = navController,
-                    startDestination = "main"
-                ) {
-                    composable("main") {
-                        MainScreen(
-                            viewModel = viewModel,
-                            navController = navController
-                        )
-                    }
-
-                    composable("addTask") {
-                        AddTaskScreen(
-                            viewModel = viewModel,
-                            navController = navController
-                        )
-                    }
-                }
+                    viewModel = viewModel
+                )
             }
         }
     }

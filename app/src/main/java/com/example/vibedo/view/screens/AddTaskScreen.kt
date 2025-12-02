@@ -9,29 +9,25 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
-import com.example.vibedo.view.theme.VibeDoTheme
 import com.example.vibedo.viewmodel.TaskViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTaskScreen(
-    viewModel: TaskViewModel?,
-    navController: NavHostController
+    viewModel: TaskViewModel,
+    onNavigateBack: () -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var priority by remember { mutableIntStateOf(0) }
+    var priority by remember { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Add New Task") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -39,8 +35,8 @@ fun AddTaskScreen(
                     TextButton(
                         onClick = {
                             if (title.isNotBlank()) {
-                                viewModel?.addTask(title, description, priority)
-                                navController.navigateUp()
+                                viewModel.addTask(title, description, priority)
+                                onNavigateBack()
                             }
                         },
                         enabled = title.isNotBlank()
@@ -135,15 +131,4 @@ fun PriorityChip(
         onClick = onClick,
         label = { Text(text) }
     )
-}
-
-@Preview(showBackground = true, device = "id:pixel_5")
-@Composable
-fun AddTaskScreenPreview() {
-    VibeDoTheme {
-        AddTaskScreen(
-            viewModel = null,
-            navController = rememberNavController()
-        )
-    }
 }
