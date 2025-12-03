@@ -68,7 +68,7 @@ fun MainScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column {
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Row(
                     modifier = Modifier

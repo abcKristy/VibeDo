@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,14 +44,17 @@ fun TodayHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .height(IntrinsicSize.Min) // Минимальная высота по содержимому
+            .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom
+        verticalAlignment = Alignment.CenterVertically
     ) {
         // Левый столбец - день недели, число и месяц в столбце
         Column(
-            modifier = Modifier.wrapContentWidth(),
-            verticalArrangement = Arrangement.Bottom,
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 16.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.Start
         ) {
             // День недели (меньше и не такой яркий)
@@ -88,21 +92,23 @@ fun TodayHeader() {
             )
         }
 
-        Spacer(Modifier.width(50.dp))
-
+        // Вертикальная линия - фиксированная высота по содержимому
         Box(
             modifier = Modifier
-                .width(3.dp)
-                .height(150.dp)
-                .background(Color.Gray.copy(alpha = 0.3f))
-                .padding(horizontal = 16.dp)
+                .fillMaxHeight() // Занимает всю высоту Row
+                .width(2.dp) // Ширина линии
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color.Gray.copy(alpha = 0.4f))
+                .padding(horizontal = 12.dp)
         )
 
-        // Правый столбец - время
+        // Правый столбец - время (фиксированная ширина)
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .width(140.dp)
+                .padding(start = 12.dp),
             horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.Bottom
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = currentTime,
@@ -110,7 +116,8 @@ fun TodayHeader() {
                     fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1
             )
 
             Text(
@@ -119,7 +126,8 @@ fun TodayHeader() {
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal
                 ),
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                maxLines = 1
             )
         }
     }

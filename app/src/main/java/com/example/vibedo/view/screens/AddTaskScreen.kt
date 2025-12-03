@@ -463,8 +463,8 @@ fun AddTaskScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp)
-                        .padding(bottom = 16.dp)
+                        .height(80.dp)
+                        .padding(bottom = 8.dp)
                 ) {
                     items(allColors) { colorPair ->
                         CompactColorOption(
