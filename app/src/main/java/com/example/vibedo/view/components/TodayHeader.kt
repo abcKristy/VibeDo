@@ -1,6 +1,5 @@
 package com.example.vibedo.view.components
 
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +28,8 @@ fun TodayHeader() {
     val currentDate = remember { Date() }
     val timeFormatter = remember { SimpleDateFormat("h:mm a", Locale.ENGLISH) }
     val dayFormatter = remember { SimpleDateFormat("EEEE", Locale.ENGLISH) }
-    val dateFormatter = remember { SimpleDateFormat("d MMMM", Locale.ENGLISH) }
+    val dateFormatter = remember { SimpleDateFormat("d", Locale.ENGLISH) }
+    val monthFormatter = remember { SimpleDateFormat("MMMM", Locale.ENGLISH) }
 
     var currentTime by remember { mutableStateOf(timeFormatter.format(Date())) }
 
@@ -43,38 +43,57 @@ fun TodayHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 32.dp),
+            .padding(horizontal = 24.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom
     ) {
-        // Левый столбец - день и дата
+        // Левый столбец - день недели, число и месяц в столбце
         Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Bottom
+            modifier = Modifier.wrapContentWidth(),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.Start
         ) {
+            // День недели (меньше и не такой яркий)
             Text(
                 text = dayFormatter.format(currentDate).uppercase(),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Число (очень большое и жирное)
+            Text(
+                text = dateFormatter.format(currentDate),
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontSize = 64.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-1).sp
+                ),
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.height(72.dp)
+            )
+
+            // Месяц (большой и жирный, но меньше числа)
+            Text(
+                text = monthFormatter.format(currentDate).uppercase(),
                 style = MaterialTheme.typography.displaySmall.copy(
-                    fontSize = 28.sp,
+                    fontSize = 32.sp,
                     fontWeight = FontWeight.Bold
                 ),
                 color = MaterialTheme.colorScheme.onBackground
             )
-
-            Text(
-                text = dateFormatter.format(currentDate).uppercase(),
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-            )
         }
+
+        Spacer(Modifier.width(50.dp))
 
         Box(
             modifier = Modifier
-                .width(1.dp)
-                .height(60.dp)
+                .width(3.dp)
+                .height(150.dp)
                 .background(Color.Gray.copy(alpha = 0.3f))
                 .padding(horizontal = 16.dp)
         )

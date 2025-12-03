@@ -174,12 +174,8 @@ fun TodayView(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Заголовок Today
         TodayHeader()
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Список задач
         Box(
             modifier = Modifier
                 .fillMaxSize()
