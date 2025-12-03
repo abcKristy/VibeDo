@@ -42,26 +42,55 @@ data class CardColorPair(
  */
 object CardColorManager {
     val colorPairs = listOf(
-        CardColorPair(peach, peachDark, "Peach"),
-        CardColorPair(coral, coralDark, "Coral"),
-        CardColorPair(lemon, lemonDark, "Lemon"),
-        CardColorPair(butter, butterDark, "Butter"),
-        CardColorPair(mint, mintDark, "Mint"),
-        CardColorPair(aqua, aquaDark, "Aqua"),
-        CardColorPair(turquoise, turquoiseDark, "Turquoise"),
+        // Группа 1: Синие и голубые тона
         CardColorPair(skyBlue, skyBlueDark, "Sky Blue"),
         CardColorPair(azure, azureDark, "Azure"),
-        CardColorPair(lavender, lavenderDark, "Lavender"),
-        CardColorPair(lilac, lilacDark, "Lilac"),
-        CardColorPair(amethyst, amethystDark, "Amethyst"),
+        CardColorPair(seaWave, seaWaveDark, "Sea Wave"),
+        CardColorPair(tealBlue, tealBlueDark, "Teal Blue"),
+        CardColorPair(dustyBlue, dustyBlueDark, "Dusty Blue"),
+        CardColorPair(slate, slateDark, "Slate"),
+        CardColorPair(indigo, indigoDark, "Indigo"),
+        CardColorPair(aqua, aquaDark, "Aqua"),
+        CardColorPair(turquoise, turquoiseDark, "Turquoise"),
+
+        // Группа 2: Зеленые тона
+        CardColorPair(mint, mintDark, "Mint"),
+        CardColorPair(emerald, emeraldDark, "Emerald"),
+        CardColorPair(seafoam, seafoamDark, "Seafoam"),
         CardColorPair(sage, sageDark, "Sage"),
         CardColorPair(olive, oliveDark, "Olive"),
         CardColorPair(moss, mossDark, "Moss"),
+        CardColorPair(pistachio, pistachioDark, "Pistachio"),
+
+        // Группа 3: Фиолетовые и лиловые тона
+        CardColorPair(lavender, lavenderDark, "Lavender"),
+        CardColorPair(lilac, lilacDark, "Lilac"),
+        CardColorPair(amethyst, amethystDark, "Amethyst"),
+        CardColorPair(eggplant, eggplantDark, "Eggplant"),
+
+        // Группа 4: Розовые, красные и коралловые тона
+        CardColorPair(peach, peachDark, "Peach"),
+        CardColorPair(coral, coralDark, "Coral"),
+        CardColorPair(raspberry, raspberryDark, "Raspberry"),
+        CardColorPair(fuchsia, fuchsiaDark, "Fuchsia"),
+        CardColorPair(burgundyLight, burgundyDark, "Burgundy"),
+        CardColorPair(teaRose, teaRoseDark, "Tea Rose"),
+        CardColorPair(peachPink, peachPinkDark, "Peach Pink"),
+        CardColorPair(vermilion, vermilionDark, "Vermilion"),
+
+        // Группа 5: Желтые и оранжевые тона
+        CardColorPair(lemon, lemonDark, "Lemon"),
+        CardColorPair(butter, butterDark, "Butter"),
+        CardColorPair(amber, amberDark, "Amber"),
+
+        // Группа 6: Нейтральные и землистые тона
         CardColorPair(sand, sandDark, "Sand"),
         CardColorPair(cream, creamDark, "Cream"),
         CardColorPair(vanilla, vanillaDark, "Vanilla"),
         CardColorPair(pearl, pearlDark, "Pearl"),
-        CardColorPair(silver, silverDark, "Silver")
+        CardColorPair(khaki, khakiDark, "Khaki"),
+        CardColorPair(terracotta, terracottaDark, "Terracotta"),
+        CardColorPair(clay, clayDark, "Clay")
     )
 
     // Предопределенные теги (не пользовательские)
@@ -148,28 +177,30 @@ fun CardColorManagerPreview() {
             )
 
             // Показываем несколько цветов
-            val colorsToShow = listOf(0, 5, 10, 15) // Выбираем разные индексы
+            val colorsToShow = listOf(0, 5, 10, 15, 20, 25) // Выбираем разные индексы
             colorsToShow.forEach { index ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(80.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = CardColorManager.getColorByIndex(index).backgroundColor,
-                        contentColor = CardColorManager.getColorByIndex(index).contentColor
-                    )
-                ) {
-                    Box(
+                if (index < CardColorManager.colorPairs.size) {
+                    Card(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        Text(
-                            text = "Color ${index + 1}: ${CardColorManager.getColorByIndex(index).name}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            .fillMaxWidth()
+                            .height(80.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = CardColorManager.getColorByIndex(index).backgroundColor,
+                            contentColor = CardColorManager.getColorByIndex(index).contentColor
                         )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                text = "Color ${index + 1}: ${CardColorManager.getColorByIndex(index).name}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
