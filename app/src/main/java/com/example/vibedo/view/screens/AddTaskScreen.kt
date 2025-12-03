@@ -1,6 +1,7 @@
 package com.example.vibedo.view.screens
 
 import android.annotation.SuppressLint
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,11 +11,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -29,7 +28,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
 import com.example.vibedo.model.ITaskRepository
 import com.example.vibedo.model.TaskEntity
 import com.example.vibedo.model.TaskTag
@@ -42,6 +40,7 @@ import com.example.vibedo.view.theme.getAllAvailableColors
 import com.example.vibedo.viewmodel.TaskViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,8 +52,11 @@ fun AddTaskScreen(
     val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var priority by remember { mutableStateOf(0) }
+    var priority by remember { mutableIntStateOf(0) }
     var tag by remember { mutableStateOf("task") }
+
+    // Дата задачи (по умолчанию сегодня)
+    var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
 
     // Время в формате строк (HH:MM)
     var startTimeText by remember { mutableStateOf("") }
@@ -66,7 +68,6 @@ fun AddTaskScreen(
 
     // Флаги ошибок для пустых обязательных полей
     var titleError by remember { mutableStateOf(false) }
-    var endTimeErrorFlag by remember { mutableStateOf(false) }
 
     // Для расчета продолжительности
     var duration by remember { mutableStateOf<Int?>(null) }
@@ -79,6 +80,9 @@ fun AddTaskScreen(
     var showAddTagDialog by remember { mutableStateOf(false) }
     var newTagName by remember { mutableStateOf("") }
     var newTagColorIndex by remember { mutableStateOf(0) }
+
+    // Диалог выбора даты
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // Загружаем пользовательские теги
     val customTags by viewModel.customTags.collectAsState(initial = emptyList())
@@ -126,7 +130,6 @@ fun AddTaskScreen(
     fun validateAndSave() {
         // Сбрасываем флаги ошибок
         titleError = false
-        endTimeErrorFlag = false
 
         // Проверяем обязательные поля
         var hasError = false
@@ -136,29 +139,30 @@ fun AddTaskScreen(
             hasError = true
         }
 
-        if (endTimeText.isBlank()) {
-            endTimeErrorFlag = true
-            hasError = true
-        }
-
         // Если есть ошибки валидации времени
         if (startTimeError != null || endTimeError != null) {
             hasError = true
         }
 
+        // Проверяем, что если указано время окончания, то указано и время начала
+        if (endTimeText.isNotEmpty() && startTimeText.isEmpty()) {
+            startTimeError = "Specify start time if end time is set"
+            hasError = true
+        }
+
         if (hasError) {
             // Показываем тост с сообщением
-            Toast.makeText(context, "Заполните название и время окончания", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Заполните название задачи", Toast.LENGTH_LONG).show()
             return
         }
 
         // Все проверки пройдены, сохраняем задачу
         val startTimeMillis = if (startTimeText.isNotEmpty()) {
-            convertTimeToMillis(startTimeText)
+            convertTimeToMillis(startTimeText, selectedDate)
         } else null
 
         val endTimeMillis = if (endTimeText.isNotEmpty()) {
-            convertTimeToMillis(endTimeText)
+            convertTimeToMillis(endTimeText, selectedDate)
         } else null
 
         viewModel.addTask(
@@ -202,14 +206,12 @@ fun AddTaskScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 16.dp)
-                .verticalScroll(rememberScrollState())
         ) {
-            // Поле для заголовка
             OutlinedTextField(
                 value = title,
                 onValueChange = {
                     title = it
-                    titleError = false // Сбрасываем ошибку при вводе
+                    titleError = false
                 },
                 label = { Text("Task Title*") },
                 placeholder = { Text("Enter task title") },
@@ -220,14 +222,6 @@ fun AddTaskScreen(
                     imeAction = ImeAction.Next
                 ),
                 isError = titleError,
-                supportingText = {
-                    if (titleError) {
-                        Text(
-                            text = "Required",
-                            color = coralDark
-                        )
-                    }
-                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (titleError) coralDark else MaterialTheme.colorScheme.outline,
                     unfocusedBorderColor = if (titleError) coralDark else MaterialTheme.colorScheme.outline,
@@ -239,9 +233,6 @@ fun AddTaskScreen(
                 )
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Поле для описания
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
@@ -251,7 +242,7 @@ fun AddTaskScreen(
                 minLines = 3,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 100.dp),
+                    .heightIn(min = 50.dp),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Next
@@ -262,16 +253,57 @@ fun AddTaskScreen(
                 )
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Date*",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = "Select date",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Text(
+                        text = formatDateForDisplay(selectedDate.time),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Icon(
+                        Icons.Default.ArrowDropDown,
+                        contentDescription = "Select date",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Выбор времени
             Text(
                 text = "Time",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Время начала
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -282,7 +314,7 @@ fun AddTaskScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Start (optional)",
+                        text = "Start",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
@@ -296,7 +328,6 @@ fun AddTaskScreen(
                     )
                 }
 
-                // Отображение ошибки для времени начала
                 startTimeError?.let { error ->
                     Text(
                         text = error,
@@ -309,7 +340,6 @@ fun AddTaskScreen(
                 }
             }
 
-            // Время окончания
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -320,7 +350,7 @@ fun AddTaskScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "End*",
+                        text = "End",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
@@ -329,32 +359,17 @@ fun AddTaskScreen(
                         value = endTimeText,
                         onValueChange = {
                             endTimeText = it
-                            endTimeErrorFlag = false // Сбрасываем ошибку при вводе
                         },
                         placeholder = "10:00",
                         modifier = Modifier.width(120.dp),
-                        hasEmptyError = endTimeErrorFlag,
                         hasValidationError = endTimeError != null
                     )
                 }
 
-                // Отображение ошибки валидации для времени окончания
                 endTimeError?.let { error ->
                     Text(
                         text = error,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp)
-                    )
-                }
-
-                // Сообщение об обязательности поля
-                if (endTimeErrorFlag) {
-                    Text(
-                        text = "Required",
-                        color = coralDark,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -399,9 +414,6 @@ fun AddTaskScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Выбор категории (tag) с LazyRow
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -412,7 +424,6 @@ fun AddTaskScreen(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Кнопка добавления нового тега
                 IconButton(
                     onClick = { showAddTagDialog = true },
                     modifier = Modifier.size(36.dp)
@@ -424,14 +435,12 @@ fun AddTaskScreen(
                 }
             }
 
-            // LazyRow с тегами
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
             ) {
-                // Показываем все теги
                 items(allTags) { currentTag ->
                     TagChip(
                         text = currentTag.replaceFirstChar { it.uppercase() },
@@ -441,7 +450,6 @@ fun AddTaskScreen(
                 }
             }
 
-            // Выбор цвета карточки (только для дефолтного тега "task")
             if (showColorPalette) {
                 Text(
                     text = "Card Color",
@@ -449,14 +457,13 @@ fun AddTaskScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                // Компактная палитра (7x3)
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(7),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(140.dp)
+                        .height(120.dp)
                         .padding(bottom = 16.dp)
                 ) {
                     items(allColors) { colorPair ->
@@ -471,9 +478,6 @@ fun AddTaskScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Выбор приоритета
             Text(
                 text = "Priority",
                 style = MaterialTheme.typography.titleMedium,
@@ -502,29 +506,64 @@ fun AddTaskScreen(
                 )
             }
         }
+    }
 
-        // Диалог добавления нового тега
-        if (showAddTagDialog) {
-            AddTagDialog(
-                tagName = newTagName,
-                colorIndex = newTagColorIndex,
-                allColors = allColors,
-                onTagNameChange = { newTagName = it },
-                onColorIndexChange = { newTagColorIndex = it },
-                onConfirm = {
-                    if (newTagName.isNotBlank()) {
-                        viewModel.addCustomTag(newTagName, newTagColorIndex)
-                        tag = newTagName
-                        newTagName = ""
-                        showAddTagDialog = false
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.timeInMillis
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val calendar = Calendar.getInstance()
+                            calendar.timeInMillis = millis
+                            selectedDate = calendar
+                        }
+                        showDatePicker = false
                     }
-                },
-                onDismiss = {
-                    showAddTagDialog = false
-                    newTagName = ""
+                ) {
+                    Text("OK")
                 }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDatePicker = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(
+                state = datePickerState
             )
         }
+    }
+
+    // Диалог добавления нового тега
+    if (showAddTagDialog) {
+        AddTagDialog(
+            tagName = newTagName,
+            colorIndex = newTagColorIndex,
+            allColors = allColors,
+            onTagNameChange = { newTagName = it },
+            onColorIndexChange = { newTagColorIndex = it },
+            onConfirm = {
+                if (newTagName.isNotBlank()) {
+                    viewModel.addCustomTag(newTagName, newTagColorIndex)
+                    tag = newTagName
+                    newTagName = ""
+                    showAddTagDialog = false
+                }
+            },
+            onDismiss = {
+                showAddTagDialog = false
+                newTagName = ""
+            }
+        )
     }
 }
 
@@ -691,9 +730,9 @@ private fun formatForValidation(digits: String): String {
 }
 
 /**
- * Конвертирует текст времени в миллисекунды (относительно текущей даты)
+ * Конвертирует текст времени в миллисекунды с учетом выбранной даты
  */
-private fun convertTimeToMillis(timeText: String): Long {
+private fun convertTimeToMillis(timeText: String, date: Calendar): Long {
     // timeText содержит только цифры, форматируем
     val formatted = formatForValidation(timeText)
     val parts = formatted.split(":")
@@ -701,6 +740,7 @@ private fun convertTimeToMillis(timeText: String): Long {
     val minutes = parts[1].toInt()
 
     val calendar = Calendar.getInstance()
+    calendar.time = date.time // Устанавливаем выбранную дату
     calendar.set(Calendar.HOUR_OF_DAY, hours)
     calendar.set(Calendar.MINUTE, minutes)
     calendar.set(Calendar.SECOND, 0)
@@ -714,8 +754,10 @@ private fun convertTimeToMillis(timeText: String): Long {
  */
 private fun calculateDuration(startTime: String, endTime: String): Int? {
     try {
-        val startMillis = convertTimeToMillis(startTime)
-        val endMillis = convertTimeToMillis(endTime)
+        // Используем текущую дату для расчета продолжительности
+        val calendar = Calendar.getInstance()
+        val startMillis = convertTimeToMillis(startTime, calendar)
+        val endMillis = convertTimeToMillis(endTime, calendar)
 
         // Если endTime раньше startTime, предполагаем что это на следующий день
         val durationMillis = if (endMillis < startMillis) {
@@ -728,6 +770,14 @@ private fun calculateDuration(startTime: String, endTime: String): Int? {
     } catch (e: Exception) {
         return null
     }
+}
+
+/**
+ * Форматирует дату для отображения
+ */
+private fun formatDateForDisplay(date: Date): String {
+    val dateFormatter = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.ENGLISH)
+    return dateFormatter.format(date).uppercase()
 }
 
 @Composable
@@ -764,12 +814,12 @@ fun AddTagDialog(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                // Палитра цветов для тега
+                // Палитра цветов для тега (уменьшенная высота)
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(5),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.height(120.dp)
+                    modifier = Modifier.height(80.dp) // Уменьшенная высота
                 ) {
                     items(allColors) { colorPair ->
                         CompactColorOption(
