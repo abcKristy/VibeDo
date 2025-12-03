@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.vibedo.model.ITaskRepository
 import com.example.vibedo.model.TaskEntity
 import com.example.vibedo.model.TaskTag
@@ -55,8 +56,9 @@ fun AddTaskScreen(
     var priority by remember { mutableIntStateOf(0) }
     var tag by remember { mutableStateOf("task") }
 
-    // Дата задачи (по умолчанию сегодня)
-    var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
+    // Даты для начала и окончания (по умолчанию сегодня)
+    var startDate by remember { mutableStateOf(Calendar.getInstance()) }
+    var endDate by remember { mutableStateOf(Calendar.getInstance()) }
 
     // Время в формате строк (HH:MM)
     var startTimeText by remember { mutableStateOf("") }
@@ -81,8 +83,9 @@ fun AddTaskScreen(
     var newTagName by remember { mutableStateOf("") }
     var newTagColorIndex by remember { mutableStateOf(0) }
 
-    // Диалог выбора даты
-    var showDatePicker by remember { mutableStateOf(false) }
+    // Диалоги выбора даты
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
     // Загружаем пользовательские теги
     val customTags by viewModel.customTags.collectAsState(initial = emptyList())
@@ -107,7 +110,7 @@ fun AddTaskScreen(
     }
 
     // Валидация времени и расчет продолжительности
-    LaunchedEffect(startTimeText, endTimeText) {
+    LaunchedEffect(startTimeText, endTimeText, startDate, endDate) {
         // Валидация времени начала
         startTimeError = validateTime(startTimeText)
 
@@ -117,7 +120,7 @@ fun AddTaskScreen(
         // Только если оба времени валидны, вычисляем продолжительность
         if (startTimeError == null && endTimeError == null &&
             startTimeText.isNotEmpty() && endTimeText.isNotEmpty()) {
-            duration = calculateDuration(startTimeText, endTimeText)
+            duration = calculateDuration(startTimeText, endTimeText, startDate, endDate)
         } else {
             duration = null
         }
@@ -125,6 +128,31 @@ fun AddTaskScreen(
 
     // Проверяем, нужно ли показывать палитру цветов
     val showColorPalette = tag == "task"
+
+    // Проверка, что дата окончания не раньше даты начала
+    fun isEndDateBeforeStartDate(): Boolean {
+        val start = startDate.timeInMillis
+        val end = endDate.timeInMillis
+
+        // Сравниваем только даты (без учета времени)
+        val startCal = Calendar.getInstance().apply {
+            timeInMillis = start
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        val endCal = Calendar.getInstance().apply {
+            timeInMillis = end
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        return endCal.before(startCal)
+    }
 
     // Функция проверки валидации и сохранения
     fun validateAndSave() {
@@ -144,6 +172,12 @@ fun AddTaskScreen(
             hasError = true
         }
 
+        // Проверяем, что дата окончания не раньше даты начала
+        if (isEndDateBeforeStartDate()) {
+            endTimeError = "End date cannot be before start date"
+            hasError = true
+        }
+
         // Проверяем, что если указано время окончания, то указано и время начала
         if (endTimeText.isNotEmpty() && startTimeText.isEmpty()) {
             startTimeError = "Specify start time if end time is set"
@@ -158,11 +192,11 @@ fun AddTaskScreen(
 
         // Все проверки пройдены, сохраняем задачу
         val startTimeMillis = if (startTimeText.isNotEmpty()) {
-            convertTimeToMillis(startTimeText, selectedDate)
+            convertTimeToMillis(startTimeText, startDate)
         } else null
 
         val endTimeMillis = if (endTimeText.isNotEmpty()) {
-            convertTimeToMillis(endTimeText, selectedDate)
+            convertTimeToMillis(endTimeText, endDate)
         } else null
 
         viewModel.addTask(
@@ -253,128 +287,138 @@ fun AddTaskScreen(
                 )
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
+            // Секция для времени начала
             Text(
-                text = "Date*",
+                text = "Start",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showDatePicker = true }
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Icon(
-                        Icons.Default.CalendarToday,
-                        contentDescription = "Select date",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Text(
-                        text = formatDateForDisplay(selectedDate.time),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    Icon(
-                        Icons.Default.ArrowDropDown,
-                        contentDescription = "Select date",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Time",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            Column(
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                // Поле выбора даты начала
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showStartDatePicker = true }
                 ) {
-                    Text(
-                        text = "Start",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CalendarToday,
+                            contentDescription = "Select start date",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
 
-                    SmartTimeInputField(
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = formatDateForDisplay(startDate.time),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.width(120.dp)) {
+                    CompactTimeInputField(
                         value = startTimeText,
                         onValueChange = { startTimeText = it },
                         placeholder = "09:00",
-                        modifier = Modifier.width(120.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         hasValidationError = startTimeError != null
                     )
-                }
 
-                startTimeError?.let { error ->
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp)
-                    )
+                    startTimeError?.let { error ->
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
+                    }
                 }
             }
 
-            Column(
+            // Секция для времени окончания
+            Text(
+                text = "End",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                // Поле выбора даты окончания
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showEndDatePicker = true }
                 ) {
-                    Text(
-                        text = "End",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CalendarToday,
+                            contentDescription = "Select end date",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
 
-                    SmartTimeInputField(
-                        value = endTimeText,
-                        onValueChange = {
-                            endTimeText = it
-                        },
-                        placeholder = "10:00",
-                        modifier = Modifier.width(120.dp),
-                        hasValidationError = endTimeError != null
-                    )
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = formatDateForDisplay(endDate.time),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
-                endTimeError?.let { error ->
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Поле ввода времени окончания (компактное)
+                Column(modifier = Modifier.width(120.dp)) {
+                    CompactTimeInputField(
+                        value = endTimeText,
+                        onValueChange = { endTimeText = it },
+                        placeholder = "10:00",
+                        modifier = Modifier.fillMaxWidth(),
+                        hasValidationError = endTimeError != null
                     )
+
+                    endTimeError?.let { error ->
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -508,22 +552,23 @@ fun AddTaskScreen(
         }
     }
 
-    if (showDatePicker) {
+    // Диалог выбора даты начала
+    if (showStartDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.timeInMillis
+            initialSelectedDateMillis = startDate.timeInMillis
         )
 
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
+            onDismissRequest = { showStartDatePicker = false },
             confirmButton = {
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
                             val calendar = Calendar.getInstance()
                             calendar.timeInMillis = millis
-                            selectedDate = calendar
+                            startDate = calendar
                         }
-                        showDatePicker = false
+                        showStartDatePicker = false
                     }
                 ) {
                     Text("OK")
@@ -531,7 +576,43 @@ fun AddTaskScreen(
             },
             dismissButton = {
                 TextButton(
-                    onClick = { showDatePicker = false }
+                    onClick = { showStartDatePicker = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(
+                state = datePickerState
+            )
+        }
+    }
+
+    // Диалог выбора даты окончания
+    if (showEndDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = endDate.timeInMillis
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val calendar = Calendar.getInstance()
+                            calendar.timeInMillis = millis
+                            endDate = calendar
+                        }
+                        showEndDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showEndDatePicker = false }
                 ) {
                     Text("Cancel")
                 }
@@ -568,11 +649,11 @@ fun AddTaskScreen(
 }
 
 /**
- * Умное поле для ввода времени с правильным смещением курсора
+ * Компактное поле для ввода времени с уменьшенной высотой
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SmartTimeInputField(
+fun CompactTimeInputField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
@@ -586,9 +667,11 @@ fun SmartTimeInputField(
         value = value,
         onValueChange = onValueChange,
         label = null,
-        placeholder = { Text(placeholder) },
+        placeholder = { Text(placeholder, fontSize = 14.sp) },
         singleLine = true,
-        modifier = modifier,
+        modifier = modifier
+            .height(48.dp) // Увеличенная высота для отображения текста
+            .padding(vertical = 0.dp),
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Number,
             imeAction = ImeAction.Next
@@ -601,7 +684,14 @@ fun SmartTimeInputField(
             errorBorderColor = coralDark,
             errorCursorColor = coralDark,
             errorTrailingIconColor = coralDark,
-            errorLeadingIconColor = coralDark
+            errorLeadingIconColor = coralDark,
+            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        shape = RoundedCornerShape(8.dp),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+            color = if (value.isNotEmpty()) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant
         )
     )
 }
@@ -750,20 +840,22 @@ private fun convertTimeToMillis(timeText: String, date: Calendar): Long {
 }
 
 /**
- * Вычисляет продолжительность в минутах между двумя временами
+ * Вычисляет продолжительность в минутах между двумя временами с учетом дат
  */
-private fun calculateDuration(startTime: String, endTime: String): Int? {
+private fun calculateDuration(
+    startTime: String,
+    endTime: String,
+    startDate: Calendar,
+    endDate: Calendar
+): Int? {
     try {
-        // Используем текущую дату для расчета продолжительности
-        val calendar = Calendar.getInstance()
-        val startMillis = convertTimeToMillis(startTime, calendar)
-        val endMillis = convertTimeToMillis(endTime, calendar)
+        val startMillis = convertTimeToMillis(startTime, startDate)
+        val endMillis = convertTimeToMillis(endTime, endDate)
 
-        // Если endTime раньше startTime, предполагаем что это на следующий день
-        val durationMillis = if (endMillis < startMillis) {
-            endMillis + (24 * 60 * 60 * 1000) - startMillis // Добавляем 24 часа
-        } else {
-            endMillis - startMillis
+        val durationMillis = endMillis - startMillis
+
+        if (durationMillis < 0) {
+            return null // Отрицательная продолжительность не допускается
         }
 
         return (durationMillis / (1000 * 60)).toInt()
@@ -776,8 +868,8 @@ private fun calculateDuration(startTime: String, endTime: String): Int? {
  * Форматирует дату для отображения
  */
 private fun formatDateForDisplay(date: Date): String {
-    val dateFormatter = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.ENGLISH)
-    return dateFormatter.format(date).uppercase()
+    val dateFormatter = SimpleDateFormat("EEE, d MMM", Locale.ENGLISH)
+    return dateFormatter.format(date)
 }
 
 @Composable
