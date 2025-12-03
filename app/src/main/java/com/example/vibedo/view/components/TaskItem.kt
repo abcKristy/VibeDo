@@ -26,9 +26,9 @@ import java.util.*
 fun TaskItem(
     task: TaskEntity,
     onDeleteClick: () -> Unit,
+    showTimeLabels: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-
     val cardColors = rememberCardColors(task.colorIndex)
     val priorityIcon = when (task.priority) {
         0 -> Icons.Default.LowPriority
@@ -51,6 +51,7 @@ fun TaskItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .wrapContentHeight()
                 .padding(16.dp)
         ) {
             Row(
@@ -78,47 +79,39 @@ fun TaskItem(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.Start
+            if (showTimeLabels) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TimeText(time = task.startTime, label = "Start", textColor = cardColors.contentColor)
-                }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        if (task.startTime != null) {
+                            TimeText(time = task.startTime, label = "Start", textColor = cardColors.contentColor)
+                        } else {
+                            Box(modifier = Modifier.height(24.dp))
+                        }
+                    }
 
-                DurationChip(duration = task.duration, cardColors = cardColors)
+                    DurationChip(duration = task.duration, cardColors = cardColors)
 
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    TimeText(time = task.endTime, label = "End", textColor = cardColors.contentColor)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        if (task.endTime != null) {
+                            TimeText(time = task.endTime, label = "End", textColor = cardColors.contentColor)
+                        } else {
+                            Box(modifier = Modifier.height(24.dp))
+                        }
+                    }
                 }
             }
-
-//            // Кнопка удаления (маленькая в правом нижнем углу)
-//            Box(
-//                modifier = Modifier.fillMaxWidth(),
-//                contentAlignment = Alignment.BottomEnd
-//            ) {
-//                IconButton(
-//                    onClick = onDeleteClick,
-//                    modifier = Modifier.size(32.dp)
-//                ) {
-//                    Icon(
-//                        Icons.Default.Delete,
-//                        contentDescription = "Delete",
-//                        tint = cardColors.contentColor.copy(alpha = 0.7f),
-//                        modifier = Modifier.size(20.dp)
-//                    )
-//                }
-//            }
         }
     }
 }
@@ -129,25 +122,29 @@ fun TimeText(
     label: String,
     textColor: Color
 ) {
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelSmall,
-        color = textColor.copy(alpha = 0.6f)
-    )
-
-    Spacer(modifier = Modifier.height(4.dp))
-
     if (time != null) {
-        val formatter = remember { SimpleDateFormat("h:mm a", Locale.ENGLISH) }
-        val timeText = formatter.format(Date(time))
+        Column(
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor.copy(alpha = 0.6f)
+            )
 
-        Text(
-            text = timeText,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Medium
-            ),
-            color = textColor
-        )
+            Spacer(modifier = Modifier.height(4.dp))
+
+            val formatter = remember { SimpleDateFormat("h:mm a", Locale.ENGLISH) }
+            val timeText = formatter.format(Date(time))
+
+            Text(
+                text = timeText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium
+                ),
+                color = textColor
+            )
+        }
     } else {
         Box(modifier = Modifier.height(24.dp))
     }
@@ -185,7 +182,7 @@ fun DurationChip(
 
 @Preview(showBackground = true)
 @Composable
-fun TaskItemPreview() {
+fun TaskItemWithTimePreview() {
     VibeDoTheme {
         Column(
             modifier = Modifier
@@ -194,18 +191,51 @@ fun TaskItemPreview() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            repeat(3) { index ->
-                TaskItem(
-                    task = TaskEntity(
-                        id = index.toLong(),
-                        title = "Task ${index + 1} now time for work harder to be better",
-                        description = "Description for task ${index + 1}",
-                        priority = index % 3,
-                        duration = 30 + index * 15
-                    ),
-                    onDeleteClick = {}
-                )
-            }
+            TaskItem(
+                task = TaskEntity(
+                    id = 1,
+                    title = "Team meeting",
+                    description = "Discuss project progress",
+                    priority = 2,
+                    tag = "meeting",
+                    colorIndex = 4,
+                    startTime = System.currentTimeMillis(),
+                    endTime = System.currentTimeMillis() + 3600000,
+                    duration = 60
+                ),
+                onDeleteClick = {},
+                showTimeLabels = true
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TaskItemWithoutTimePreview() {
+    VibeDoTheme {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TaskItem(
+                task = TaskEntity(
+                    id = 2,
+                    title = "Read a book",
+                    description = "Read 50 pages",
+                    priority = 1,
+                    tag = "personal",
+                    colorIndex = 2,
+                    startTime = null,
+                    endTime = null,
+                    duration = null
+                ),
+                onDeleteClick = {},
+                showTimeLabels = false
+            )
         }
     }
 }

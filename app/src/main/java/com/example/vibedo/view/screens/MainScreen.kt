@@ -257,8 +257,13 @@ fun TaskList(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(tasks) { task ->
+            // Проверяем, есть ли время в задаче
+            val hasStartTime = task.startTime != null
+            val hasEndTime = task.endTime != null
+
             TaskItem(
                 task = task,
+                showTimeLabels = hasStartTime || hasEndTime, // Показывать метки времени только если есть хоть одно время
                 onDeleteClick = {
                     viewModel?.deleteTask(task)
                 }
@@ -266,6 +271,16 @@ fun TaskList(
         }
     }
 }
+
+// Если нужно также обновить компонент TaskItem, вот как его нужно модифицировать:
+// @Composable
+// fun TaskItem(
+//     task: TaskEntity,
+//     showTimeLabels: Boolean = true, // Добавить этот параметр
+//     onDeleteClick: () -> Unit
+// ) {
+//     // Внутри компонента TaskItem проверяйте showTimeLabels перед отображением меток "Start"/"End"
+// }
 
 @Preview(showBackground = true)
 @Composable
@@ -305,6 +320,7 @@ fun MainScreenWithTasksPreview() {
                     repository = object : ITaskRepository {
                         override fun getAllTasks(): Flow<List<TaskEntity>> = MutableStateFlow(
                             listOf(
+                                // Задача с временем начала и конца
                                 TaskEntity(
                                     id = 1,
                                     title = "Team meeting",
@@ -316,6 +332,7 @@ fun MainScreenWithTasksPreview() {
                                     endTime = System.currentTimeMillis() + 3600000,
                                     duration = 60
                                 ),
+                                // Задача только с временем окончания
                                 TaskEntity(
                                     id = 2,
                                     title = "Gym workout",
@@ -323,10 +340,11 @@ fun MainScreenWithTasksPreview() {
                                     priority = 1,
                                     tag = "workout",
                                     colorIndex = 2,
-                                    startTime = System.currentTimeMillis() + 7200000,
+                                    startTime = null,
                                     endTime = System.currentTimeMillis() + 10800000,
                                     duration = 60
                                 ),
+                                // Задача без времени
                                 TaskEntity(
                                     id = 3,
                                     title = "Study session",
@@ -334,9 +352,9 @@ fun MainScreenWithTasksPreview() {
                                     priority = 1,
                                     tag = "lesson",
                                     colorIndex = 10,
-                                    startTime = System.currentTimeMillis() + 14400000,
-                                    endTime = System.currentTimeMillis() + 18000000,
-                                    duration = 60
+                                    startTime = null,
+                                    endTime = null,
+                                    duration = null
                                 )
                             )
                         )
