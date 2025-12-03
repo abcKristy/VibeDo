@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class TaskViewModel @Inject constructor(
+open class TaskViewModel @Inject constructor(
     private val repository: ITaskRepository,
     private val taskTagDao: TaskTagDao
 ): ViewModel() {
@@ -86,7 +86,7 @@ class TaskViewModel @Inject constructor(
             duration = duration
         )
     }
-    val customTags: Flow<List<TaskTag>> = taskTagDao.getCustomTags()
+    open val customTags: Flow<List<TaskTag>> = taskTagDao.getCustomTags()
 
     fun addTask(
         title: String,

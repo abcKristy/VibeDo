@@ -1,8 +1,32 @@
 package com.example.vibedo.view.theme
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.example.vibedo.view.screens.CompactColorOption
 
 /**
  * Пара цветов для карточки: светлый фон и темный текст/иконки
@@ -103,4 +127,78 @@ fun rememberCardColors(colorIndex: Int): CardColorPair {
 @Composable
 fun getAllAvailableColors(): List<CardColorPair> {
     return remember { CardColorManager.colorPairs }
+}
+
+
+@Preview(showBackground = true)
+@Composable
+fun CardColorManagerPreview() {
+    VibeDoTheme {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.background),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Демонстрация цветов карточек
+            Text(
+                text = "Card Color System Preview",
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            // Показываем несколько цветов
+            val colorsToShow = listOf(0, 5, 10, 15) // Выбираем разные индексы
+            colorsToShow.forEach { index ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = CardColorManager.getColorByIndex(index).backgroundColor,
+                        contentColor = CardColorManager.getColorByIndex(index).contentColor
+                    )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = "Color ${index + 1}: ${CardColorManager.getColorByIndex(index).name}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = "Predefined Tags",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CardColorManager.predefinedTags.forEach { tag ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = CardColorManager.getDefaultForTag(tag).backgroundColor,
+                        contentColor = CardColorManager.getDefaultForTag(tag).contentColor
+                    ) {
+                        Text(
+                            text = tag.replaceFirstChar { it.uppercase() },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

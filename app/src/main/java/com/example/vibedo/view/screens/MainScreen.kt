@@ -39,12 +39,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.vibedo.model.ITaskRepository
 import com.example.vibedo.model.TaskEntity
+import com.example.vibedo.model.TaskTag
+import com.example.vibedo.model.TaskTagDao
 import com.example.vibedo.view.components.TaskItem
 import com.example.vibedo.view.components.CalendarHeader
 import com.example.vibedo.view.components.TodayHeader
 import com.example.vibedo.view.theme.VibeDoTheme
 import com.example.vibedo.viewmodel.TaskViewModel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +65,6 @@ fun MainScreen(
             TopAppBar(
                 title = { },
                 actions = {
-                    // Кнопка Today
                     FilterChip(
                         selected = isTodayView,
                         onClick = { isTodayView = true },
@@ -223,48 +227,6 @@ fun TaskList(
 
 @Preview(showBackground = true)
 @Composable
-fun EmptyTaskStatePreview() {
-    VibeDoTheme {
-        Surface {
-            EmptyTaskState()
-        }
-    }
-}
-
-@Preview(showBackground = true, device = "id:pixel_5")
-@Composable
-fun TodayViewPreview() {
-    VibeDoTheme {
-        Surface {
-            TodayView(
-                tasks = listOf(
-                    TaskEntity(
-                        id = 1,
-                        title = "Meeting with team",
-                        description = "Discuss project progress",
-                        priority = 2
-                    ),
-                    TaskEntity(
-                        id = 2,
-                        title = "Lunch with friends",
-                        isCompleted = true,
-                        priority = 0
-                    ),
-                    TaskEntity(
-                        id = 3,
-                        title = "Workout session",
-                        description = "Gym at 6 PM",
-                        priority = 1
-                    )
-                ),
-                viewModel = null
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
 fun TodayViewEmptyPreview() {
     VibeDoTheme {
         Surface {
@@ -284,6 +246,80 @@ fun CalendarViewPreview() {
             CalendarView(
                 tasks = emptyList(),
                 viewModel = null
+            )
+        }
+    }
+}
+@Preview(showBackground = true, device = "id:pixel_5")
+@Composable
+fun MainScreenWithTasksPreview() {
+    VibeDoTheme {
+        Surface(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            val mockViewModel = remember {
+                object : TaskViewModel(
+                    repository = object : ITaskRepository {
+                        override fun getAllTasks(): Flow<List<TaskEntity>> = MutableStateFlow(
+                            listOf(
+                                TaskEntity(
+                                    id = 1,
+                                    title = "Team meeting",
+                                    description = "Discuss project progress",
+                                    priority = 2,
+                                    tag = "meeting",
+                                    colorIndex = 4,
+                                    startTime = System.currentTimeMillis(),
+                                    endTime = System.currentTimeMillis() + 3600000,
+                                    duration = 60
+                                ),
+                                TaskEntity(
+                                    id = 2,
+                                    title = "Gym workout",
+                                    description = "Cardio and weights",
+                                    priority = 1,
+                                    tag = "workout",
+                                    colorIndex = 2,
+                                    startTime = System.currentTimeMillis() + 7200000,
+                                    endTime = System.currentTimeMillis() + 10800000,
+                                    duration = 60
+                                ),
+                                TaskEntity(
+                                    id = 3,
+                                    title = "Study session",
+                                    description = "Machine learning course",
+                                    priority = 1,
+                                    tag = "lesson",
+                                    colorIndex = 10,
+                                    startTime = System.currentTimeMillis() + 14400000,
+                                    endTime = System.currentTimeMillis() + 18000000,
+                                    duration = 60
+                                )
+                            )
+                        )
+                        override fun getActiveTasks(): Flow<List<TaskEntity>> = MutableStateFlow(emptyList())
+                        override fun getCompletedTasks(): Flow<List<TaskEntity>> = MutableStateFlow(emptyList())
+                        override suspend fun getTaskById(taskId: Long): TaskEntity? = null
+                        override suspend fun insertTask(task: TaskEntity): Long = 0
+                        override suspend fun updateTask(task: TaskEntity) {}
+                        override suspend fun deleteTask(task: TaskEntity) {}
+                        override suspend fun updateCompletedStatus(taskId: Long, isCompleted: Boolean) {}
+                    },
+                    taskTagDao = object : TaskTagDao {
+                        override fun getAllTags(): Flow<List<TaskTag>> = MutableStateFlow(emptyList())
+                        override fun getCustomTags(): Flow<List<TaskTag>> = MutableStateFlow(emptyList())
+                        override suspend fun getTagByName(tagName: String): TaskTag? = null
+                        override suspend fun insertTag(tag: TaskTag): Long = 0
+                        override suspend fun updateTag(tag: TaskTag) {}
+                        override suspend fun deleteTag(tag: TaskTag) {}
+                        override suspend fun tagExists(tagName: String): Int = 0
+                    }
+                ) {}
+            }
+
+            MainScreen(
+                viewModel = mockViewModel,
+                onNavigateToAddTask = {}
             )
         }
     }

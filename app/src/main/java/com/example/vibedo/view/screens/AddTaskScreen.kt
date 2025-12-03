@@ -1,5 +1,6 @@
 package com.example.vibedo.view.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,12 +25,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.vibedo.model.ITaskRepository
+import com.example.vibedo.model.TaskEntity
+import com.example.vibedo.model.TaskTag
+import com.example.vibedo.model.TaskTagDao
 import com.example.vibedo.view.theme.CardColorManager
 import com.example.vibedo.view.theme.CardColorPair
+import com.example.vibedo.view.theme.VibeDoTheme
 import com.example.vibedo.view.theme.getAllAvailableColors
 import com.example.vibedo.viewmodel.TaskViewModel
-import java.text.SimpleDateFormat
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,11 +52,16 @@ fun AddTaskScreen(
     var priority by remember { mutableStateOf(0) }
     var tag by remember { mutableStateOf("task") }
 
-    // Время
-    var startTime by remember { mutableStateOf<Long?>(null) }
-    var endTime by remember { mutableStateOf<Long?>(null) }
-    var showStartTimePicker by remember { mutableStateOf(false) }
-    var showEndTimePicker by remember { mutableStateOf(false) }
+    // Время в формате строк (HH:MM)
+    var startTimeText by remember { mutableStateOf("") }
+    var endTimeText by remember { mutableStateOf("") }
+
+    // Ошибки валидации времени
+    var startTimeError by remember { mutableStateOf<String?>(null) }
+    var endTimeError by remember { mutableStateOf<String?>(null) }
+
+    // Для расчета продолжительности
+    var duration by remember { mutableStateOf<Int?>(null) }
 
     // Цвет
     var colorIndex by remember { mutableStateOf(0) }
@@ -80,6 +94,23 @@ fun AddTaskScreen(
         }
     }
 
+    // Валидация времени и расчет продолжительности
+    LaunchedEffect(startTimeText, endTimeText) {
+        // Валидация времени начала
+        startTimeError = validateTime(startTimeText)
+
+        // Валидация времени окончания
+        endTimeError = validateTime(endTimeText)
+
+        // Только если оба времени валидны, вычисляем продолжительность
+        if (startTimeError == null && endTimeError == null &&
+            startTimeText.isNotEmpty() && endTimeText.isNotEmpty()) {
+            duration = calculateDuration(startTimeText, endTimeText)
+        } else {
+            duration = null
+        }
+    }
+
     // Проверяем, нужно ли показывать палитру цветов
     val showColorPalette = tag == "task"
 
@@ -95,29 +126,30 @@ fun AddTaskScreen(
                 actions = {
                     TextButton(
                         onClick = {
-                            if (title.isNotBlank()) {
-                                // Автоматически вычисляем продолжительность
-                                val duration = if (startTime != null && endTime != null) {
-                                    val diff = endTime!! - startTime!!
-                                    (diff / (1000 * 60)).toInt() // минуты
-                                } else {
-                                    null
-                                }
+                            if (title.isNotBlank() && startTimeError == null && endTimeError == null) {
+                                // Конвертируем текстовое время в миллисекунды
+                                val startTimeMillis = if (startTimeText.isNotEmpty()) {
+                                    convertTimeToMillis(startTimeText)
+                                } else null
+
+                                val endTimeMillis = if (endTimeText.isNotEmpty()) {
+                                    convertTimeToMillis(endTimeText)
+                                } else null
 
                                 viewModel.addTask(
                                     title = title,
                                     description = description,
                                     priority = priority,
                                     tag = tag,
-                                    startTime = startTime,
-                                    endTime = endTime,
+                                    startTime = startTimeMillis,
+                                    endTime = endTimeMillis,
                                     duration = duration,
                                     colorIndex = colorIndex
                                 )
                                 onNavigateBack()
                             }
                         },
-                        enabled = title.isNotBlank()
+                        enabled = title.isNotBlank() && startTimeError == null && endTimeError == null
                     ) {
                         Text("Save")
                     }
@@ -162,7 +194,7 @@ fun AddTaskScreen(
                     .heightIn(min = 100.dp),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Done
+                    imeAction = ImeAction.Next
                 )
             )
 
@@ -176,56 +208,81 @@ fun AddTaskScreen(
             )
 
             // Время начала
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                    .padding(bottom = 12.dp)
             ) {
-                Text(
-                    text = "Start",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f)
-                )
-
-                TextButton(
-                    onClick = { showStartTimePicker = true }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = startTime?.let {
-                            SimpleDateFormat("h:mm a", Locale.ENGLISH).format(Date(it))
-                        } ?: "Not set"
+                        text = "Start",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    SmartTimeInputField(
+                        value = startTimeText,
+                        onValueChange = { startTimeText = it },
+                        placeholder = "09:00",
+                        modifier = Modifier.width(120.dp)
+                    )
+                }
+
+                // Отображение ошибки для времени начала
+                startTimeError?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
                     )
                 }
             }
 
             // Время окончания
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
             ) {
-                Text(
-                    text = "End",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f)
-                )
-
-                TextButton(
-                    onClick = { showEndTimePicker = true }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = endTime?.let {
-                            SimpleDateFormat("h:mm a", Locale.ENGLISH).format(Date(it))
-                        } ?: "Not set"
+                        text = "End",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    SmartTimeInputField(
+                        value = endTimeText,
+                        onValueChange = { endTimeText = it },
+                        placeholder = "17:00",
+                        modifier = Modifier.width(120.dp)
+                    )
+                }
+
+                // Отображение ошибки для времени окончания
+                endTimeError?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
                     )
                 }
             }
 
-            // Показать продолжительность если указаны оба времени
-            if (startTime != null && endTime != null) {
-                val duration = (endTime!! - startTime!!) / (1000 * 60) // в минутах
+            // Показать продолжительность если указаны оба времени и они валидны
+            if (duration != null && duration!! > 0) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -243,8 +300,8 @@ fun AddTaskScreen(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                         contentColor = MaterialTheme.colorScheme.primary
                     ) {
-                        val hours = duration / 60
-                        val minutes = duration % 60
+                        val hours = duration!! / 60
+                        val minutes = duration!! % 60
                         val durationText = when {
                             hours > 0 && minutes > 0 -> "${hours}h ${minutes}min"
                             hours > 0 -> "${hours}h"
@@ -364,29 +421,6 @@ fun AddTaskScreen(
             }
         }
 
-        // Упрощенные диалоги выбора времени
-        if (showStartTimePicker) {
-            TimeSelectionDialog(
-                title = "Select Start Time",
-                onConfirm = {
-                    startTime = System.currentTimeMillis()
-                    showStartTimePicker = false
-                },
-                onDismiss = { showStartTimePicker = false }
-            )
-        }
-
-        if (showEndTimePicker) {
-            TimeSelectionDialog(
-                title = "Select End Time",
-                onConfirm = {
-                    endTime = (startTime ?: System.currentTimeMillis()) + 3600000 // +1 час
-                    showEndTimePicker = false
-                },
-                onDismiss = { showEndTimePicker = false }
-            )
-        }
-
         // Диалог добавления нового тега
         if (showAddTagDialog) {
             AddTagDialog(
@@ -409,6 +443,204 @@ fun AddTaskScreen(
                 }
             )
         }
+    }
+}
+
+/**
+ * Умное поле для ввода времени с правильным смещением курсора
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SmartTimeInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { newText ->
+            // Фильтруем только цифры и удаление
+            val filtered = newText.filter { it.isDigit() }
+
+            // Ограничиваем максимум 4 цифры
+            val limitedDigits = if (filtered.length > 4) filtered.take(4) else filtered
+
+            onValueChange(limitedDigits)
+        },
+        label = null,
+        placeholder = { Text(placeholder) },
+        singleLine = true,
+        modifier = modifier,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Next
+        ),
+        // Используем правильное визуальное преобразование
+        visualTransformation = TimeAutoFormatTransformation()
+    )
+}
+
+/**
+ * Визуальное преобразование с автодобавлением двоеточия и правильным смещением курсора
+ */
+class TimeAutoFormatTransformation : androidx.compose.ui.text.input.VisualTransformation {
+    override fun filter(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.input.TransformedText {
+        val original = text.text
+
+        // Форматируем текст для отображения
+        val formatted = when (original.length) {
+            0 -> ""
+            1, 2 -> original
+            3 -> "${original.take(2)}:${original[2]}"
+            4 -> "${original.take(2)}:${original.drop(2)}"
+            else -> original.take(4).let {
+                "${it.take(2)}:${it.drop(2)}"
+            }
+        }
+
+        return androidx.compose.ui.text.input.TransformedText(
+            androidx.compose.ui.text.AnnotatedString(formatted),
+            TimeOffsetMapping(original)
+        )
+    }
+
+    private class TimeOffsetMapping(private val original: String) : androidx.compose.ui.text.input.OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int {
+            // original: "093" (3 символа)
+            // transformed: "09:3" (4 символа, двоеточие на позиции 2)
+            // Если курсор был в конце (offset = 3), он должен перейти в конец (position = 4)
+
+            return when {
+                offset <= 2 -> offset // Первые 2 символа без изменений
+                else -> offset + 1 // После 2 символов добавляем +1 для двоеточия
+            }
+        }
+
+        override fun transformedToOriginal(offset: Int): Int {
+            // transformed: "09:3"
+            // Если курсор после двоеточия (position = 3), он должен соответствовать original[2]
+
+            return when {
+                offset <= 2 -> offset // Первые 2 символа без изменений
+                else -> offset - 1 // После двоеточия вычитаем 1
+            }
+        }
+    }
+}
+
+/**
+ * Валидация времени в формате HH:MM
+ * Возвращает сообщение об ошибке или null если время валидно
+ */
+private fun validateTime(timeText: String): String? {
+    if (timeText.isEmpty()) {
+        return null // Пустое время допустимо
+    }
+
+    // Внутреннее хранилище только цифры, нужно форматировать для проверки
+    val formattedTime = formatForValidation(timeText)
+
+    // Проверяем формат HH:MM
+    if (!formattedTime.contains(':')) {
+        // Если введены только часы (например "09")
+        if (formattedTime.length == 2 && formattedTime.all { it.isDigit() }) {
+            val hours = formattedTime.toIntOrNull()
+            if (hours == null || hours < 0 || hours > 23) {
+                return "Hours must be 0-23"
+            }
+            return "Enter minutes"
+        }
+        return "Invalid format"
+    }
+
+    val parts = formattedTime.split(":")
+    if (parts.size != 2) {
+        return "Invalid format"
+    }
+
+    val hoursStr = parts[0]
+    val minutesStr = parts[1]
+
+    // Проверяем что часы и минуты - числа
+    val hours = hoursStr.toIntOrNull()
+    val minutes = minutesStr.toIntOrNull()
+
+    if (hours == null) {
+        return "Hours must be a number"
+    }
+
+    if (minutes == null) {
+        return "Minutes must be a number"
+    }
+
+    // Проверяем диапазоны
+    if (hours < 0 || hours > 23) {
+        return "Hours must be 0-23"
+    }
+
+    if (minutes < 0 || minutes > 59) {
+        return "Minutes must be 0-59"
+    }
+
+    // Проверяем что введены все 4 цифры
+    if (hoursStr.length != 2 || minutesStr.length != 2) {
+        return "Enter all 4 digits"
+    }
+
+    return null // Валидно
+}
+
+/**
+ * Форматирует внутреннее значение (только цифры) в формат HH:MM для валидации
+ */
+private fun formatForValidation(digits: String): String {
+    return when (digits.length) {
+        0 -> ""
+        1, 2 -> digits
+        3 -> "${digits.take(2)}:${digits[2]}"
+        4 -> "${digits.take(2)}:${digits.drop(2)}"
+        else -> digits.take(4).let { "${it.take(2)}:${it.drop(2)}" }
+    }
+}
+
+/**
+ * Конвертирует текст времени в миллисекунды (относительно текущей даты)
+ */
+private fun convertTimeToMillis(timeText: String): Long {
+    // timeText содержит только цифры, форматируем
+    val formatted = formatForValidation(timeText)
+    val parts = formatted.split(":")
+    val hours = parts[0].toInt()
+    val minutes = parts[1].toInt()
+
+    val calendar = Calendar.getInstance()
+    calendar.set(Calendar.HOUR_OF_DAY, hours)
+    calendar.set(Calendar.MINUTE, minutes)
+    calendar.set(Calendar.SECOND, 0)
+    calendar.set(Calendar.MILLISECOND, 0)
+
+    return calendar.timeInMillis
+}
+
+/**
+ * Вычисляет продолжительность в минутах между двумя временами
+ */
+private fun calculateDuration(startTime: String, endTime: String): Int? {
+    try {
+        val startMillis = convertTimeToMillis(startTime)
+        val endMillis = convertTimeToMillis(endTime)
+
+        // Если endTime раньше startTime, предполагаем что это на следующий день
+        val durationMillis = if (endMillis < startMillis) {
+            endMillis + (24 * 60 * 60 * 1000) - startMillis // Добавляем 24 часа
+        } else {
+            endMillis - startMillis
+        }
+
+        return (durationMillis / (1000 * 60)).toInt()
+    } catch (e: Exception) {
+        return null
     }
 }
 
@@ -524,31 +756,6 @@ fun CompactColorOption(
 }
 
 @Composable
-fun TimeSelectionDialog(
-    title: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Text("For demo using current time. Add a real time picker later.")
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Set Time")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
 fun PriorityChip(
     text: String,
     selected: Boolean,
@@ -577,7 +784,7 @@ fun TagChip(
         "urgent" -> Color(0xFFFFEBEE)
         else -> {
             // Для пользовательских тегов - безопасный расчет индекса
-            val index = (text.hashCode() and Int.MAX_VALUE) % 20 // Используем and Int.MAX_VALUE для получения положительного числа
+            val index = (text.hashCode() and Int.MAX_VALUE) % 20
             CardColorManager.getColorByIndex(index).backgroundColor
         }
     }
@@ -612,5 +819,66 @@ fun TagChip(
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
+    }
+}
+
+@SuppressLint("ViewModelConstructorInComposable")
+@Preview(showBackground = true)
+@Composable
+fun AddTaskScreenPreview() {
+    VibeDoTheme {
+        Surface(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            AddTaskScreen(
+                viewModel = TaskViewModel(
+                    repository = object : ITaskRepository {
+                        override fun getAllTasks(): Flow<List<TaskEntity>> = MutableStateFlow(emptyList())
+                        override fun getActiveTasks(): Flow<List<TaskEntity>> = MutableStateFlow(emptyList())
+                        override fun getCompletedTasks(): Flow<List<TaskEntity>> = MutableStateFlow(emptyList())
+                        override suspend fun getTaskById(taskId: Long): TaskEntity? = null
+                        override suspend fun insertTask(task: TaskEntity): Long = 0
+                        override suspend fun updateTask(task: TaskEntity) {}
+                        override suspend fun deleteTask(task: TaskEntity) {}
+                        override suspend fun updateCompletedStatus(taskId: Long, isCompleted: Boolean) {}
+                    },
+                    taskTagDao = object : TaskTagDao {
+                        override fun getAllTags(): Flow<List<TaskTag>> = MutableStateFlow(emptyList())
+                        override fun getCustomTags(): Flow<List<TaskTag>> = MutableStateFlow(emptyList())
+                        override suspend fun getTagByName(tagName: String): TaskTag? = null
+                        override suspend fun insertTag(tag: TaskTag): Long = 0
+                        override suspend fun updateTag(tag: TaskTag) {}
+                        override suspend fun deleteTag(tag: TaskTag) {}
+                        override suspend fun tagExists(tagName: String): Int = 0
+                    }
+                ),
+                onNavigateBack = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AddTagDialogEmptyPreview() {
+    VibeDoTheme {
+        Surface(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                AddTagDialog(
+                    tagName = "",
+                    colorIndex = 0,
+                    allColors = getAllAvailableColors(),
+                    onTagNameChange = {},
+                    onColorIndexChange = {},
+                    onConfirm = {},
+                    onDismiss = {}
+                )
+            }
+        }
     }
 }
