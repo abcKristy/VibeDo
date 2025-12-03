@@ -23,11 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import com.example.vibedo.model.ITaskRepository
 import com.example.vibedo.model.TaskEntity
 import com.example.vibedo.model.TaskTag
@@ -35,6 +37,7 @@ import com.example.vibedo.model.TaskTagDao
 import com.example.vibedo.view.theme.CardColorManager
 import com.example.vibedo.view.theme.CardColorPair
 import com.example.vibedo.view.theme.VibeDoTheme
+import com.example.vibedo.view.theme.coralDark
 import com.example.vibedo.view.theme.getAllAvailableColors
 import com.example.vibedo.viewmodel.TaskViewModel
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +50,7 @@ fun AddTaskScreen(
     viewModel: TaskViewModel,
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf(0) }
@@ -59,6 +63,10 @@ fun AddTaskScreen(
     // Ошибки валидации времени
     var startTimeError by remember { mutableStateOf<String?>(null) }
     var endTimeError by remember { mutableStateOf<String?>(null) }
+
+    // Флаги ошибок для пустых обязательных полей
+    var titleError by remember { mutableStateOf(false) }
+    var endTimeErrorFlag by remember { mutableStateOf(false) }
 
     // Для расчета продолжительности
     var duration by remember { mutableStateOf<Int?>(null) }
@@ -114,10 +122,65 @@ fun AddTaskScreen(
     // Проверяем, нужно ли показывать палитру цветов
     val showColorPalette = tag == "task"
 
+    // Функция проверки валидации и сохранения
+    fun validateAndSave() {
+        // Сбрасываем флаги ошибок
+        titleError = false
+        endTimeErrorFlag = false
+
+        // Проверяем обязательные поля
+        var hasError = false
+
+        if (title.isBlank()) {
+            titleError = true
+            hasError = true
+        }
+
+        if (endTimeText.isBlank()) {
+            endTimeErrorFlag = true
+            hasError = true
+        }
+
+        // Если есть ошибки валидации времени
+        if (startTimeError != null || endTimeError != null) {
+            hasError = true
+        }
+
+        if (hasError) {
+            // Показываем тост с сообщением
+            Toast.makeText(context, "Заполните название и время окончания", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // Все проверки пройдены, сохраняем задачу
+        val startTimeMillis = if (startTimeText.isNotEmpty()) {
+            convertTimeToMillis(startTimeText)
+        } else null
+
+        val endTimeMillis = if (endTimeText.isNotEmpty()) {
+            convertTimeToMillis(endTimeText)
+        } else null
+
+        viewModel.addTask(
+            title = title,
+            description = description,
+            priority = priority,
+            tag = tag,
+            startTime = startTimeMillis,
+            endTime = endTimeMillis,
+            duration = duration,
+            colorIndex = colorIndex
+        )
+        onNavigateBack()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add New Task") },
+                title = { },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -125,31 +188,7 @@ fun AddTaskScreen(
                 },
                 actions = {
                     TextButton(
-                        onClick = {
-                            if (title.isNotBlank() && startTimeError == null && endTimeError == null) {
-                                // Конвертируем текстовое время в миллисекунды
-                                val startTimeMillis = if (startTimeText.isNotEmpty()) {
-                                    convertTimeToMillis(startTimeText)
-                                } else null
-
-                                val endTimeMillis = if (endTimeText.isNotEmpty()) {
-                                    convertTimeToMillis(endTimeText)
-                                } else null
-
-                                viewModel.addTask(
-                                    title = title,
-                                    description = description,
-                                    priority = priority,
-                                    tag = tag,
-                                    startTime = startTimeMillis,
-                                    endTime = endTimeMillis,
-                                    duration = duration,
-                                    colorIndex = colorIndex
-                                )
-                                onNavigateBack()
-                            }
-                        },
-                        enabled = title.isNotBlank() && startTimeError == null && endTimeError == null
+                        onClick = { validateAndSave() }
                     ) {
                         Text("Save")
                     }
@@ -161,13 +200,17 @@ fun AddTaskScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             // Поле для заголовка
             OutlinedTextField(
                 value = title,
-                onValueChange = { title = it },
+                onValueChange = {
+                    title = it
+                    titleError = false // Сбрасываем ошибку при вводе
+                },
                 label = { Text("Task Title*") },
                 placeholder = { Text("Enter task title") },
                 singleLine = true,
@@ -176,7 +219,24 @@ fun AddTaskScreen(
                     capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Next
                 ),
-                isError = title.isBlank()
+                isError = titleError,
+                supportingText = {
+                    if (titleError) {
+                        Text(
+                            text = "Required",
+                            color = coralDark
+                        )
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (titleError) coralDark else MaterialTheme.colorScheme.outline,
+                    unfocusedBorderColor = if (titleError) coralDark else MaterialTheme.colorScheme.outline,
+                    focusedLabelColor = if (titleError) coralDark else MaterialTheme.colorScheme.onSurfaceVariant,
+                    unfocusedLabelColor = if (titleError) coralDark else MaterialTheme.colorScheme.onSurfaceVariant,
+                    errorBorderColor = coralDark,
+                    errorLabelColor = coralDark,
+                    errorSupportingTextColor = coralDark
+                )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -195,6 +255,10 @@ fun AddTaskScreen(
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Next
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
             )
 
@@ -218,7 +282,7 @@ fun AddTaskScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Start",
+                        text = "Start (optional)",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
@@ -227,7 +291,8 @@ fun AddTaskScreen(
                         value = startTimeText,
                         onValueChange = { startTimeText = it },
                         placeholder = "09:00",
-                        modifier = Modifier.width(120.dp)
+                        modifier = Modifier.width(120.dp),
+                        hasValidationError = startTimeError != null
                     )
                 }
 
@@ -255,24 +320,41 @@ fun AddTaskScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "End",
+                        text = "End*",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
 
                     SmartTimeInputField(
                         value = endTimeText,
-                        onValueChange = { endTimeText = it },
-                        placeholder = "17:00",
-                        modifier = Modifier.width(120.dp)
+                        onValueChange = {
+                            endTimeText = it
+                            endTimeErrorFlag = false // Сбрасываем ошибку при вводе
+                        },
+                        placeholder = "10:00",
+                        modifier = Modifier.width(120.dp),
+                        hasEmptyError = endTimeErrorFlag,
+                        hasValidationError = endTimeError != null
                     )
                 }
 
-                // Отображение ошибки для времени окончания
+                // Отображение ошибки валидации для времени окончания
                 endTimeError?.let { error ->
                     Text(
                         text = error,
                         color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                    )
+                }
+
+                // Сообщение об обязательности поля
+                if (endTimeErrorFlag) {
+                    Text(
+                        text = "Required",
+                        color = coralDark,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -455,19 +537,15 @@ fun SmartTimeInputField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    hasEmptyError: Boolean = false,
+    hasValidationError: Boolean = false
 ) {
+    val isError = hasEmptyError || hasValidationError
+
     OutlinedTextField(
         value = value,
-        onValueChange = { newText ->
-            // Фильтруем только цифры и удаление
-            val filtered = newText.filter { it.isDigit() }
-
-            // Ограничиваем максимум 4 цифры
-            val limitedDigits = if (filtered.length > 4) filtered.take(4) else filtered
-
-            onValueChange(limitedDigits)
-        },
+        onValueChange = onValueChange,
         label = null,
         placeholder = { Text(placeholder) },
         singleLine = true,
@@ -476,8 +554,16 @@ fun SmartTimeInputField(
             keyboardType = KeyboardType.Number,
             imeAction = ImeAction.Next
         ),
-        // Используем правильное визуальное преобразование
-        visualTransformation = TimeAutoFormatTransformation()
+        visualTransformation = TimeAutoFormatTransformation(),
+        isError = isError,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = if (isError) coralDark else MaterialTheme.colorScheme.outline,
+            unfocusedBorderColor = if (isError) coralDark else MaterialTheme.colorScheme.outline,
+            errorBorderColor = coralDark,
+            errorCursorColor = coralDark,
+            errorTrailingIconColor = coralDark,
+            errorLeadingIconColor = coralDark
+        )
     )
 }
 
@@ -797,7 +883,6 @@ fun TagChip(
         "personal" -> Color(0xFFC2185B)
         "urgent" -> Color(0xFFD32F2F)
         else -> {
-            // Для пользовательских тегов - безопасный расчет индекса
             val index = (text.hashCode() and Int.MAX_VALUE) % 20
             CardColorManager.getColorByIndex(index).contentColor
         }
@@ -812,7 +897,7 @@ fun TagChip(
             MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
         ),
         onClick = onClick,
-        modifier = Modifier.height(36.dp)
+        modifier = Modifier.wrapContentSize()
     ) {
         Text(
             text = text,
