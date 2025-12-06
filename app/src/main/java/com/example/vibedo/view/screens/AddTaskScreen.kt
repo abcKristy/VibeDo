@@ -647,10 +647,6 @@ fun AddTaskScreen(
         )
     }
 }
-
-/**
- * Компактное поле для ввода времени с уменьшенной высотой
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompactTimeInputField(
@@ -665,7 +661,16 @@ fun CompactTimeInputField(
 
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
+        onValueChange = { newText ->
+            // Очищаем от любых нецифровых символов и ограничиваем до 4
+            val digitsOnly = newText.filter { it.isDigit() }
+            if (digitsOnly.length <= 4) {
+                onValueChange(digitsOnly)
+            } else {
+                // Если больше 4 цифр, обрезаем
+                onValueChange(digitsOnly.take(4))
+            }
+        },
         label = null,
         placeholder = { Text(placeholder, fontSize = 14.sp) },
         singleLine = true,
@@ -695,7 +700,6 @@ fun CompactTimeInputField(
         )
     )
 }
-
 /**
  * Визуальное преобразование с автодобавлением двоеточия и правильным смещением курсора
  */
@@ -703,42 +707,42 @@ class TimeAutoFormatTransformation : androidx.compose.ui.text.input.VisualTransf
     override fun filter(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.input.TransformedText {
         val original = text.text
 
+        // Ограничиваем ввод до 4 цифр
+        val digitsOnly = original.filter { it.isDigit() }
+        val limitedDigits = if (digitsOnly.length > 4) digitsOnly.take(4) else digitsOnly
+
         // Форматируем текст для отображения
-        val formatted = when (original.length) {
+        val formatted = when (limitedDigits.length) {
             0 -> ""
-            1, 2 -> original
-            3 -> "${original.take(2)}:${original[2]}"
-            4 -> "${original.take(2)}:${original.drop(2)}"
-            else -> original.take(4).let {
-                "${it.take(2)}:${it.drop(2)}"
-            }
+            1, 2 -> limitedDigits
+            3 -> "${limitedDigits.take(2)}:${limitedDigits[2]}"
+            4 -> "${limitedDigits.take(2)}:${limitedDigits.drop(2)}"
+            else -> "${limitedDigits.take(2)}:${limitedDigits.drop(2)}"
         }
 
         return androidx.compose.ui.text.input.TransformedText(
             androidx.compose.ui.text.AnnotatedString(formatted),
-            TimeOffsetMapping(original)
+            TimeOffsetMapping(limitedDigits)
         )
     }
 
     private class TimeOffsetMapping(private val original: String) : androidx.compose.ui.text.input.OffsetMapping {
         override fun originalToTransformed(offset: Int): Int {
-            // original: "093" (3 символа)
-            // transformed: "09:3" (4 символа, двоеточие на позиции 2)
-            // Если курсор был в конце (offset = 3), он должен перейти в конец (position = 4)
+            // Если курсор находится за пределами ограниченных цифр, ставим его в конец
+            val actualOffset = if (offset > original.length) original.length else offset
 
             return when {
-                offset <= 2 -> offset // Первые 2 символа без изменений
-                else -> offset + 1 // После 2 символов добавляем +1 для двоеточия
+                actualOffset <= 2 -> actualOffset // Первые 2 символа без изменений
+                else -> actualOffset + 1 // После 2 символов добавляем +1 для двоеточия
             }
         }
 
         override fun transformedToOriginal(offset: Int): Int {
-            // transformed: "09:3"
-            // Если курсор после двоеточия (position = 3), он должен соответствовать original[2]
+            val adjustedOffset = if (offset < 0) 0 else offset
 
             return when {
-                offset <= 2 -> offset // Первые 2 символа без изменений
-                else -> offset - 1 // После двоеточия вычитаем 1
+                adjustedOffset <= 2 -> adjustedOffset // Первые 2 символа без изменений
+                else -> adjustedOffset - 1 // После двоеточия вычитаем 1
             }
         }
     }
@@ -753,21 +757,14 @@ private fun validateTime(timeText: String): String? {
         return null // Пустое время допустимо
     }
 
-    // Внутреннее хранилище только цифры, нужно форматировать для проверки
-    val formattedTime = formatForValidation(timeText)
-
-    // Проверяем формат HH:MM
-    if (!formattedTime.contains(':')) {
-        // Если введены только часы (например "09")
-        if (formattedTime.length == 2 && formattedTime.all { it.isDigit() }) {
-            val hours = formattedTime.toIntOrNull()
-            if (hours == null || hours < 0 || hours > 23) {
-                return "Hours must be 0-23"
-            }
-            return "Enter minutes"
-        }
-        return "Invalid format"
+    // Очищаем от любых нецифровых символов и ограничиваем до 4 цифр
+    val digitsOnly = timeText.filter { it.isDigit() }
+    if (digitsOnly.length < 4) {
+        return "Enter all 4 digits" // Нужно ввести все 4 цифры
     }
+
+    // Форматируем для проверки
+    val formattedTime = "${digitsOnly.take(2)}:${digitsOnly.drop(2)}"
 
     val parts = formattedTime.split(":")
     if (parts.size != 2) {
@@ -798,24 +795,43 @@ private fun validateTime(timeText: String): String? {
         return "Minutes must be 0-59"
     }
 
-    // Проверяем что введены все 4 цифры
-    if (hoursStr.length != 2 || minutesStr.length != 2) {
-        return "Enter all 4 digits"
+    return null // Валидно
+}
+
+/**
+ * Фильтр для ограничения ввода только цифрами и не более 4 символов
+ */
+fun filterTimeInput(text: String, newChar: Char): String {
+    // Разрешаем только цифры
+    if (!newChar.isDigit()) {
+        return text
     }
 
-    return null // Валидно
+    // Удаляем все нецифровые символы из текущего текста
+    val currentDigits = text.filter { it.isDigit() }
+
+    // Если уже есть 4 цифры, не добавляем новые
+    if (currentDigits.length >= 4) {
+        return text
+    }
+
+    // Добавляем новую цифру
+    return text + newChar
 }
 
 /**
  * Форматирует внутреннее значение (только цифры) в формат HH:MM для валидации
  */
 private fun formatForValidation(digits: String): String {
-    return when (digits.length) {
+    // Ограничиваем до 4 цифр
+    val limitedDigits = if (digits.length > 4) digits.take(4) else digits
+
+    return when (limitedDigits.length) {
         0 -> ""
-        1, 2 -> digits
-        3 -> "${digits.take(2)}:${digits[2]}"
-        4 -> "${digits.take(2)}:${digits.drop(2)}"
-        else -> digits.take(4).let { "${it.take(2)}:${it.drop(2)}" }
+        1, 2 -> limitedDigits
+        3 -> "${limitedDigits.take(2)}:${limitedDigits[2]}"
+        4 -> "${limitedDigits.take(2)}:${limitedDigits.drop(2)}"
+        else -> limitedDigits.take(4).let { "${it.take(2)}:${it.drop(2)}" }
     }
 }
 
