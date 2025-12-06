@@ -349,7 +349,7 @@ fun AddTaskScreen(
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Description (optional)") },
+                label = { Text("Description") },
                 placeholder = { Text("Enter description") },
                 singleLine = false,
                 minLines = 3,

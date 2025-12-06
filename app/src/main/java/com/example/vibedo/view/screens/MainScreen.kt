@@ -1,6 +1,5 @@
 package com.example.vibedo.view.screens
 
-import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,10 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.vibedo.model.ITaskRepository
@@ -49,8 +46,7 @@ fun MainScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        verticalArrangement = Arrangement.Top
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // 1. Верхняя часть с кнопками и фоном whiteMilk
         item {
@@ -157,53 +153,44 @@ fun MainScreen(
         }
 
         // 3. Белая область с закругленными верхними углами и задачами
-        // Она должна занимать весь оставшийся экран
         item {
-            Box(
+            Surface(
                 modifier = Modifier
-                    .fillParentMaxHeight() // Занимает всю оставшуюся высоту
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                     .background(MaterialTheme.colorScheme.surface),
-                contentAlignment = Alignment.TopStart
+                color = MaterialTheme.colorScheme.surface
             ) {
-                if (isTodayView) {
-                    if (tasks.isEmpty()) {
-                        EmptyTaskState()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp) // Отступ сверху после закругления
+                ) {
+                    if (isTodayView) {
+                        if (tasks.isEmpty()) {
+                            EmptyTaskState()
+                        } else {
+                            TaskList(tasks = tasks, viewModel = viewModel)
+                        }
                     } else {
-                        TaskList(tasks = tasks, viewModel = viewModel)
+                        CalendarContent()
                     }
-                } else {
-                    CalendarContent()
                 }
             }
         }
     }
 }
 
-// Кастомный модификатор для заполнения всей родительской высоты
-@SuppressLint("SuspiciousModifierThen")
-fun Modifier.fillParentMaxHeight(fraction: Float = 1f): Modifier = this.then(
-    layout { measurable, constraints ->
-        val maxHeight = constraints.maxHeight
-        val height = (maxHeight * fraction).toInt()
-        val childConstraints = constraints.copy(minHeight = height, maxHeight = height)
-        val placeable = measurable.measure(childConstraints)
-        layout(placeable.width, height) {
-            placeable.place(0, 0)
-        }
-    }
-)
-
 @Composable
 fun CalendarContent() {
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.height(40.dp))
+
         Text(
             text = "Calendar view will be here",
             style = MaterialTheme.typography.bodyLarge,
@@ -211,6 +198,8 @@ fun CalendarContent() {
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
+
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 
@@ -218,8 +207,8 @@ fun CalendarContent() {
 fun EmptyTaskState() {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+            .fillMaxWidth()
+            .padding(vertical = 60.dp, horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -248,9 +237,8 @@ fun TaskList(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight() // Занимает всю доступную высоту
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp, alignment = Alignment.Top)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         tasks.forEach { task ->
             // Проверяем, есть ли время в задаче
@@ -265,9 +253,6 @@ fun TaskList(
                 }
             )
         }
-
-        // Добавляем гибкий спейсер, который заполняет оставшееся пространство
-        Spacer(modifier = Modifier.weight(1f))
 
         // Добавляем отступ снизу для последней задачи
         Spacer(modifier = Modifier.height(16.dp))
@@ -313,7 +298,7 @@ fun TodayViewEmptyPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun TodayViewWithOneTaskPreview() {
+fun TodayViewWithTasksPreview() {
     VibeDoTheme {
         Surface {
             val mockViewModel = remember {
@@ -331,6 +316,28 @@ fun TodayViewWithOneTaskPreview() {
                                     startTime = System.currentTimeMillis(),
                                     endTime = System.currentTimeMillis() + 3600000,
                                     duration = 60
+                                ),
+                                TaskEntity(
+                                    id = 2,
+                                    title = "Gym workout",
+                                    description = "Cardio and weights",
+                                    priority = 1,
+                                    tag = "workout",
+                                    colorIndex = 2,
+                                    startTime = null,
+                                    endTime = System.currentTimeMillis() + 10800000,
+                                    duration = 60
+                                ),
+                                TaskEntity(
+                                    id = 3,
+                                    title = "Study session",
+                                    description = "Machine learning course",
+                                    priority = 1,
+                                    tag = "lesson",
+                                    colorIndex = 10,
+                                    startTime = null,
+                                    endTime = null,
+                                    duration = null
                                 )
                             )
                         )
