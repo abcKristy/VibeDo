@@ -3,39 +3,30 @@ package com.example.vibedo.view.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.vibedo.model.ITaskRepository
@@ -50,6 +41,7 @@ import com.example.vibedo.view.theme.whiteMilk
 import com.example.vibedo.viewmodel.TaskViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlin.math.roundToInt
 
 
 @Composable
@@ -60,132 +52,162 @@ fun MainScreen(
     val tasks by viewModel.allTasks.collectAsState(initial = emptyList())
     var isTodayView by remember { mutableStateOf(true) }
 
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Surface(
-            color = whiteMilk,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column {
-                Spacer(modifier = Modifier.height(20.dp))
+    // Состояние для смещения области с задачами
+    var offsetY by remember { mutableStateOf(0f) }
+    val maxOffset = with(LocalDensity.current) { 280.dp.toPx() } // Уменьшил с 400 до 280
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(60.dp)
-                        .padding(vertical = 8.dp, horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(40.dp),
-                            color = if (isTodayView) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.background,
-                            border = BorderStroke(
-                                width = if (isTodayView) 0.dp else 1.dp,
-                                color = if (isTodayView) Color.Transparent else MaterialTheme.colorScheme.primary
-                            ),
-                            modifier = Modifier
-                                .height(44.dp)
-                                .clickable { isTodayView = true }
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Today",
-                                    fontSize = 18.sp,
-                                    color = if (isTodayView) Color.White else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
+    // Состояние для LazyColumn
+    val listState = rememberLazyListState()
 
-                        Surface(
-                            shape = RoundedCornerShape(40.dp),
-                            color = if (!isTodayView) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.background,
-                            border = BorderStroke(
-                                width = if (!isTodayView) 0.dp else 1.dp,
-                                color = if (!isTodayView) Color.Transparent else MaterialTheme.colorScheme.primary
-                            ),
-                            modifier = Modifier
-                                .height(44.dp)
-                                .clickable { isTodayView = false }
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Calendar",
-                                    fontSize = 18.sp,
-                                    color = if (!isTodayView) Color.White else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
+    // NestedScrollConnection для обработки скролла
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val delta = available.y
 
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(0.5f))
-                            .clickable(onClick = onNavigateToAddTask),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add Task",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                // Если скроллим вверх (delta > 0) и еще не достигли максимума
+                if (delta > 0 && offsetY < maxOffset) {
+                    val newOffset = (offsetY + delta).coerceAtMost(maxOffset)
+                    offsetY = newOffset
+                    return Offset(0f, delta) // Потребляем скролл
                 }
+                // Если скроллим вниз (delta < 0) и есть смещение
+                else if (delta < 0 && offsetY > 0) {
+                    val newOffset = (offsetY + delta).coerceAtLeast(0f)
+                    offsetY = newOffset
+                    return Offset(0f, delta) // Потребляем скролл
+                }
+
+                return Offset.Zero // Не потребляем скролл
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                // Автоматическое возвращение при быстром скролле
+                return Velocity.Zero
             }
         }
+    }
 
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(nestedScrollConnection)
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // Фон с белым цветом для области задач (с закругленными верхними углами)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .offset { IntOffset(0, offsetY.roundToInt()) }
+                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) // Закругленные верхние углы
+                .background(MaterialTheme.colorScheme.surface)
         ) {
+            // Контент (список задач или календарь)
             if (isTodayView) {
-                TodayView(tasks, viewModel)
+                if (tasks.isEmpty()) {
+                    EmptyTaskState()
+                } else {
+                    TaskList(tasks = tasks, viewModel = viewModel, listState = listState)
+                }
             } else {
                 CalendarView(tasks, viewModel)
             }
         }
-    }
-}
 
-@Composable
-fun TodayView(
-    tasks: List<TaskEntity>,
-    viewModel: TaskViewModel?
-) {
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        TodayHeader()
-
-        Box(
+        // Верхняя панель (кнопки + хедер)
+        Column(
             modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(MaterialTheme.colorScheme.surface)
+                .fillMaxWidth()
+                .offset { IntOffset(0, (offsetY - maxOffset).roundToInt()) }
+                .background(whiteMilk)
         ) {
-            if (tasks.isEmpty()) {
-                EmptyTaskState()
+            // Панель с кнопками переключения и добавления
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(40.dp),
+                        color = if (isTodayView) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.background,
+                        border = BorderStroke(
+                            width = if (isTodayView) 0.dp else 1.dp,
+                            color = if (isTodayView) Color.Transparent else MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .height(44.dp)
+                            .clickable { isTodayView = true }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Today",
+                                fontSize = 18.sp,
+                                color = if (isTodayView) Color.White else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(40.dp),
+                        color = if (!isTodayView) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.background,
+                        border = BorderStroke(
+                            width = if (!isTodayView) 0.dp else 1.dp,
+                            color = if (!isTodayView) Color.Transparent else MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .height(44.dp)
+                            .clickable { isTodayView = false }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Calendar",
+                                fontSize = 18.sp,
+                                color = if (!isTodayView) Color.White else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(0.5f))
+                        .clickable(onClick = onNavigateToAddTask),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Add Task",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            // Хедер ПОД кнопками
+            if (isTodayView) {
+                TodayHeader()
             } else {
-                TaskList(tasks, viewModel)
+                // Для CalendarView - адаптированный хедер или отступ
+                Spacer(modifier = Modifier.height(30.dp))
             }
         }
     }
@@ -199,11 +221,10 @@ fun CalendarView(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        CalendarHeader()
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(80.dp))
 
         Text(
             text = "Calendar view will be here",
@@ -220,6 +241,7 @@ fun EmptyTaskState() {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(top = 50.dp)
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -244,13 +266,16 @@ fun EmptyTaskState() {
 @Composable
 fun TaskList(
     tasks: List<TaskEntity>,
-    viewModel: TaskViewModel?
+    viewModel: TaskViewModel?,
+    listState: LazyListState
 ) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        state = listState,
+        contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp) // Добавил отступ снизу
     ) {
         items(tasks) { task ->
             // Проверяем, есть ли время в задаче
@@ -259,7 +284,7 @@ fun TaskList(
 
             TaskItem(
                 task = task,
-                showTimeLabels = hasStartTime || hasEndTime, // Показывать метки времени только если есть хоть одно время
+                showTimeLabels = hasStartTime || hasEndTime,
                 onDeleteClick = {
                     viewModel?.deleteTask(task)
                 }
@@ -268,92 +293,15 @@ fun TaskList(
     }
 }
 
-// Если нужно также обновить компонент TaskItem, вот как его нужно модифицировать:
-// @Composable
-// fun TaskItem(
-//     task: TaskEntity,
-//     showTimeLabels: Boolean = true, // Добавить этот параметр
-//     onDeleteClick: () -> Unit
-// ) {
-//     // Внутри компонента TaskItem проверяйте showTimeLabels перед отображением меток "Start"/"End"
-// }
-
 @Preview(showBackground = true)
 @Composable
 fun TodayViewEmptyPreview() {
     VibeDoTheme {
         Surface {
-            TodayView(
-                tasks = emptyList(),
-                viewModel = null
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun CalendarViewPreview() {
-    VibeDoTheme {
-        Surface {
-            CalendarView(
-                tasks = emptyList(),
-                viewModel = null
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, device = "id:pixel_5")
-@Composable
-fun MainScreenWithTasksPreview() {
-    VibeDoTheme {
-        Surface(
-            modifier = Modifier.fillMaxSize()
-        ) {
             val mockViewModel = remember {
                 object : TaskViewModel(
                     repository = object : ITaskRepository {
-                        override fun getAllTasks(): Flow<List<TaskEntity>> = MutableStateFlow(
-                            listOf(
-                                // Задача с временем начала и конца
-                                TaskEntity(
-                                    id = 1,
-                                    title = "Team meeting",
-                                    description = "Discuss project progress",
-                                    priority = 2,
-                                    tag = "meeting",
-                                    colorIndex = 4,
-                                    startTime = System.currentTimeMillis(),
-                                    endTime = System.currentTimeMillis() + 3600000,
-                                    duration = 60
-                                ),
-                                // Задача только с временем окончания
-                                TaskEntity(
-                                    id = 2,
-                                    title = "Gym workout",
-                                    description = "Cardio and weights",
-                                    priority = 1,
-                                    tag = "workout",
-                                    colorIndex = 2,
-                                    startTime = null,
-                                    endTime = System.currentTimeMillis() + 10800000,
-                                    duration = 60
-                                ),
-                                // Задача без времени
-                                TaskEntity(
-                                    id = 3,
-                                    title = "Study session",
-                                    description = "Machine learning course",
-                                    priority = 1,
-                                    tag = "lesson",
-                                    colorIndex = 10,
-                                    startTime = null,
-                                    endTime = null,
-                                    duration = null
-                                )
-                            )
-                        )
+                        override fun getAllTasks(): Flow<List<TaskEntity>> = MutableStateFlow(emptyList())
                         override fun getActiveTasks(): Flow<List<TaskEntity>> = MutableStateFlow(emptyList())
                         override fun getCompletedTasks(): Flow<List<TaskEntity>> = MutableStateFlow(emptyList())
                         override suspend fun getTaskById(taskId: Long): TaskEntity? = null
