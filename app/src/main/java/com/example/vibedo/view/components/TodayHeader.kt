@@ -27,16 +27,17 @@ import java.util.*
 @Composable
 fun TodayHeader() {
     val currentDate = remember { Date() }
-    val timeFormatter = remember { SimpleDateFormat("h:mm a", Locale.ENGLISH) }
+    val timeFormatter = remember { SimpleDateFormat("HH:mm", Locale.ENGLISH) }
     val dayFormatter = remember { SimpleDateFormat("EEEE", Locale.ENGLISH) }
     val dateFormatter = remember { SimpleDateFormat("d", Locale.ENGLISH) }
     val monthFormatter = remember { SimpleDateFormat("MMMM", Locale.ENGLISH) }
 
     var currentTime by remember { mutableStateOf(timeFormatter.format(Date())) }
 
+    // Обновляем время каждые 10 секунд
     LaunchedEffect(Unit) {
         while (true) {
-            delay(60000)
+            delay(10000) // 10 секунд
             currentTime = timeFormatter.format(Date())
         }
     }
@@ -44,82 +45,71 @@ fun TodayHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min) // Минимальная высота по содержимому
+            .height(IntrinsicSize.Min)
             .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Bottom // Выравниваем по нижнему краю
     ) {
-        // Левый столбец - день недели, число и месяц в столбце
+        // Левый столбец - день недели, число и месяц
         Column(
             modifier = Modifier
                 .weight(1f)
                 .padding(end = 16.dp),
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.Bottom, // Содержимое внизу
             horizontalAlignment = Alignment.Start
         ) {
-            // День недели (меньше и не такой яркий)
+            // День недели
             Text(
                 text = dayFormatter.format(currentDate).uppercase(),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Medium
                 ),
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                modifier = Modifier.padding(bottom = 4.dp)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Число (очень большое и жирное)
+            // Число (очень большое)
             Text(
                 text = dateFormatter.format(currentDate),
                 style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 64.sp,
+                    fontSize = 72.sp, // Увеличили с 64 до 72
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-1).sp
                 ),
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.height(72.dp)
+                modifier = Modifier.height(80.dp) // Увеличили высоту
             )
 
-            // Месяц (большой и жирный, но меньше числа)
+            // Месяц
             Text(
                 text = monthFormatter.format(currentDate).uppercase(),
                 style = MaterialTheme.typography.displaySmall.copy(
-                    fontSize = 32.sp,
+                    fontSize = 36.sp, // Увеличили с 32 до 36
                     fontWeight = FontWeight.Bold
                 ),
                 color = MaterialTheme.colorScheme.onBackground
             )
         }
 
-        // Вертикальная линия - фиксированная высота по содержимому
+        // Вертикальная линия - от верхнего до нижнего края
         Box(
             modifier = Modifier
-                .fillMaxHeight() // Занимает всю высоту Row
-                .width(2.dp) // Ширина линии
+                .fillMaxHeight()
+                .width(2.dp)
                 .clip(androidx.compose.foundation.shape.CircleShape)
                 .background(Color.Gray.copy(alpha = 0.4f))
-                .padding(horizontal = 12.dp)
         )
 
-        // Правый столбец - время (фиксированная ширина)
+        // Правый столбец - время и город (внизу колонки)
         Column(
             modifier = Modifier
-                .width(140.dp)
+                .width(160.dp) // Увеличили ширину
                 .padding(start = 12.dp),
             horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Bottom // Содержимое внизу
         ) {
-            Text(
-                text = currentTime,
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1
-            )
-
+            // Город (сверху)
             Text(
                 text = "MOSCOW",
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -127,6 +117,18 @@ fun TodayHeader() {
                     fontWeight = FontWeight.Normal
                 ),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                maxLines = 1,
+                modifier = Modifier.padding(bottom = 8.dp) // Отступ снизу перед временем
+            )
+
+            // Время (большое, внизу)
+            Text(
+                text = currentTime,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 40.sp, // Увеличили с 24 до 40
+                    fontWeight = FontWeight.Bold // Сделали жирнее
+                ),
+                color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1
             )
         }
